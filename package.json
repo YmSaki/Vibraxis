@@ -7,6 +7,7 @@
     "start": "npm --workspace frontend run dev -- --host 0.0.0.0",
     "build": "npm --workspace frontend run build",
     "test": "npm --workspace frontend run test",
-    "check": "npm --workspace frontend run check"
+    "check:protocol-docs": "node scripts/check-protocol-docs.mjs",
+    "check": "npm run check:protocol-docs && npm --workspace frontend run check"
   }
 }
