@@ -1,0 +1,13 @@
+{
+  "tracks": {
+    "126_long_BPM142.mp3": { "bpm": 142 },
+    "127_long_BPM155.mp3": { "bpm": 155 },
+    "233_long_BPM163.mp3": { "bpm": 163 },
+    "236_long_BPM87.mp3": { "bpm": 87 },
+    "239_long_BPM88.mp3": { "bpm": 88 },
+    "249_long_BPM118.mp3": { "bpm": 118 },
+    "276_long_BPM103.mp3": { "bpm": 103 },
+    "301_long_BPM145.mp3": { "bpm": 145 },
+    "386_long_BPM98.mp3": { "bpm": 98 }
+  }
+}

@@ -1,0 +1,19 @@
+[project]
+name = "analyze-tool"
+version = "0.1.0"
+description = "Offline audio catalog analysis for the Vibraxis DJ agent"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "librosa>=0.11.0",
+    "taskipy>=1.14.1",
+]
+
+[tool.taskipy.tasks]
+test = "python -m unittest discover -s tests -v"
+unit = "python -m unittest tests.test_models tests.test_music tests.test_overrides tests.test_cli tests.test_advanced tests.test_catalog tests.test_validation -v"
+check = "python -m compileall -q src tests main.py && python -m unittest discover -s tests -v && python main.py --help"
+analyze-samples = "python main.py ../data/sample --output ../data/analysis --profile full"
+test-integration = "python -m unittest tests.test_generated_samples -v"
+build-catalog = "python main.py ../data/sample --output ../data/analysis --profile full --catalog-source ../data/catalog-source.json --catalog-output ../data/catalog.json --allow-partial --allow-unverified-license"
+benchmark-golden = "python scripts/benchmark_golden.py"

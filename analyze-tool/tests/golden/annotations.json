@@ -1,0 +1,8 @@
+{
+  "note": "Human chord and section annotations must replace null fields before model-accuracy claims are made.",
+  "tracks": {
+    "236_long_bpm87": {"bpm": 87, "chords": null, "sections": null},
+    "249_long_bpm118": {"bpm": 118, "chords": null, "sections": null},
+    "126_long_bpm142": {"bpm": 142, "chords": null, "sections": null}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "vibraxis",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "start": "npm --workspace frontend run dev -- --host 0.0.0.0",
+    "build": "npm --workspace frontend run build",
+    "test": "npm --workspace frontend run test",
+    "check": "npm --workspace frontend run check"
+  }
+}
