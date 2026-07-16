@@ -104,7 +104,7 @@ sequenceDiagram
 順序0→1までは直列で行う。その後は、Runtime/Audioの主経路を順序2→3→4、DJ経路を順序5→6で進め、順序7で合流する。各経路内では最初の未完了項目を次の作業にする。
 
 - [x] 順序0: ゴールデンパスを阻むVDAP契約を固定
-- [ ] 順序1: デモ用JSON Schema・TypeScript型
+- [x] 順序1: デモ用JSON Schema・TypeScript型
 - [ ] 順序2: 正準Runtime StoreとMessagePort縦切り
 - [ ] 順序3: 安全な2デッキ音声基盤
 - [ ] 順序4: 最小Beat Transition

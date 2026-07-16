@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vibraxis.local/schemas/vdap/ramp-crossfader.schema.json",
+  "title": "VDAP P0 mixer.rampCrossfader request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["vdap", "kind", "requestId", "command", "params"],
+  "properties": {
+    "vdap": {"const": "1.0"},
+    "kind": {"const": "request"},
+    "requestId": {"type": "string", "minLength": 1},
+    "command": {"const": "mixer.rampCrossfader"},
+    "expectedRevision": {"type": "integer", "minimum": 1},
+    "when": {"$ref": "#/$defs/when"},
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["to", "duration", "curve"],
+      "properties": {
+        "to": {"type": "number", "minimum": -1, "maximum": 1},
+        "duration": {"$ref": "#/$defs/duration"},
+        "curve": {"const": "equalPower"},
+        "referenceDeckId": {"enum": ["A", "B"]}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "duration": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": ["bars"],
+                    "properties": {"bars": true}
+                  },
+                  {
+                    "type": "object",
+                    "required": ["beats"],
+                    "properties": {"beats": true}
+                  }
+                ]
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "required": ["referenceDeckId"],
+            "properties": {"referenceDeckId": true}
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "duration": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bars"],
+          "properties": {"bars": {"type": "integer", "minimum": 1}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["beats"],
+          "properties": {"beats": {"type": "integer", "minimum": 1}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seconds"],
+          "properties": {"seconds": {"type": "number", "exclusiveMinimum": 0}}
+        }
+      ]
+    },
+    "when": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at"],
+          "properties": {"at": {"const": "immediate"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "deckId"],
+          "properties": {
+            "at": {"enum": ["nextBeat", "nextBar"]},
+            "deckId": {"enum": ["A", "B"]},
+            "onGridUnavailable": {"enum": ["reject", "immediate"]},
+            "minConfidence": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      ]
+    }
+  }
+}

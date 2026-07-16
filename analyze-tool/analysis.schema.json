@@ -23,14 +23,22 @@
     "capabilities": {
       "type": "object",
       "required": ["features", "beatGrid", "harmony", "structure"],
-      "additionalProperties": {"$ref": "#/$defs/capability"}
+      "additionalProperties": false,
+      "properties": {
+        "features": {"$ref": "#/$defs/capability"},
+        "beatGrid": {"$ref": "#/$defs/capability"},
+        "harmony": {"$ref": "#/$defs/capability"},
+        "structure": {"$ref": "#/$defs/capability"}
+      }
     },
     "tempo": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["bpm", "rawBpm", "adjustment", "timeSignature", "beatsSeconds", "downbeatsSeconds", "barsSeconds"],
       "properties": {
         "bpm": {"type": "number", "exclusiveMinimum": 0},
         "rawBpm": {"type": "number", "exclusiveMinimum": 0},
+        "adjustment": {"enum": ["none", "double", "half", "clamp"]},
         "timeSignature": {"type": "string"},
         "beatsSeconds": {"type": "array", "items": {"type": "number", "minimum": 0}},
         "downbeatsSeconds": {"type": "array", "items": {"type": "number", "minimum": 0}},
@@ -39,16 +47,25 @@
     },
     "tonal": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["key", "scale", "camelot", "confidence", "keyRegions"],
-      "properties": {"keyRegions": {"type": "array", "items": {"$ref": "#/$defs/keyRegion"}}}
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "scale": {"enum": ["major", "minor"]},
+        "camelot": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "keyRegions": {"type": "array", "items": {"$ref": "#/$defs/keyRegion"}}
+      }
     },
     "harmony": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["chords"],
       "properties": {"chords": {"type": "array", "items": {"$ref": "#/$defs/chord"}}}
     },
     "structure": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["sections", "phrases"],
       "properties": {
         "sections": {"type": "array", "items": {"$ref": "#/$defs/section"}},

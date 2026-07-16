@@ -1,0 +1,21 @@
+{
+  "name": "@vibraxis/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./analysis": "./analysis/index.ts",
+    "./vdap": "./vdap/index.ts",
+    "./vdap/deck-load.schema.json": "./vdap/deck-load.schema.json",
+    "./vdap/ramp-crossfader.schema.json": "./vdap/ramp-crossfader.schema.json",
+    "./dj": "./dj/index.ts",
+    "./dj/intent.schema.json": "./dj/intent.schema.json",
+    "./dj/decision.schema.json": "./dj/decision.schema.json"
+  },
+  "scripts": {
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  }
+}

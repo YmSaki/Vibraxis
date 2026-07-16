@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vibraxis.local/schemas/dj/intent.schema.json",
+  "title": "Vibraxis DJ Intent",
+  "description": "A bounded, machine-actionable interpretation of a user's DJ request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "energyDirection",
+    "targetEnergy",
+    "preferredGenres",
+    "avoidedGenres",
+    "preferredMoods",
+    "avoidedMoods",
+    "tempoDirection",
+    "harmonicPriority",
+    "transitionUrgency",
+    "requestedTrackId",
+    "excludedTrackIds",
+    "rationale",
+    "confidence"
+  ],
+  "properties": {
+    "energyDirection": {
+      "type": "string",
+      "enum": ["decrease", "maintain", "increase"]
+    },
+    "targetEnergy": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "preferredGenres": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+    },
+    "avoidedGenres": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+    },
+    "preferredMoods": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+    },
+    "avoidedMoods": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+    },
+    "tempoDirection": {
+      "type": "string",
+      "enum": ["slower", "similar", "faster", "any"]
+    },
+    "harmonicPriority": {
+      "type": "string",
+      "enum": ["strict", "compatible", "ignore"]
+    },
+    "transitionUrgency": {
+      "type": "string",
+      "enum": ["quick", "normal", "gradual"]
+    },
+    "requestedTrackId": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "excludedTrackIds": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
