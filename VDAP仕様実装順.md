@@ -105,7 +105,7 @@ sequenceDiagram
 
 - [x] 順序0: ゴールデンパスを阻むVDAP契約を固定
 - [x] 順序1: デモ用JSON Schema・TypeScript型
-- [ ] 順序2: 正準Runtime StoreとMessagePort縦切り
+- [x] 順序2: 正準Runtime StoreとMessagePort縦切り
 - [ ] 順序3: 安全な2デッキ音声基盤
 - [ ] 順序4: 最小Beat Transition
 - [ ] 順序5: 決定論的DJロジック

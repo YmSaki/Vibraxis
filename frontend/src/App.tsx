@@ -1,45 +1,89 @@
-import { useEffect, useMemo, useState } from 'react'
-import { DeckEngine, type DeckId, type MixerSnapshot } from './audio/DeckEngine'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { RuntimeState } from '@vibraxis/shared/vdap'
+import { DeckEngine, type DeckId, type DeckSnapshot } from './audio/DeckEngine'
 import { calculateTempoSync, interpretedBpm, type TempoMultiplier } from './audio/audioMath'
-import { fetchCatalog, trackAudioUrl, type CatalogTrack } from './catalog'
+import { fetchCatalog, type CatalogTrack } from './catalog'
 import { Deck } from './components/Deck'
 import { TrackLibrary } from './components/TrackLibrary'
+import { createRuntime, runtimeNow } from './runtime/createRuntime'
+import { VdapClient, VdapClientError, type MutationHandle } from './runtime/VdapClient'
 import './styles.css'
 
-const initialSnapshot: MixerSnapshot = {
-  decks: {
-    A: { id: 'A', name: null, duration: 0, position: 0, gain: 1, playbackRate: 1, playing: false, loaded: false },
-    B: { id: 'B', name: null, duration: 0, position: 0, gain: 1, playbackRate: 1, playing: false, loaded: false },
-  },
-  crossfader: 0,
-  masterVolume: 0.8,
-  audioReady: false,
+const emptyDeckView = (id: DeckId): DeckSnapshot => ({
+  id,
+  name: null,
+  duration: 0,
+  position: 0,
+  gain: 1,
+  playbackRate: 1,
+  playing: false,
+  loaded: false,
+})
+
+async function settle(mutation: Promise<MutationHandle>): Promise<void> {
+  const handle = await mutation
+  const terminal = await handle.terminal
+  if (terminal.event === 'intent.failed') throw new Error(terminal.error.message)
 }
 
 export default function App() {
   const engine = useMemo(() => new DeckEngine(), [])
-  const [mixer, setMixer] = useState(initialSnapshot)
+  const tracksRef = useRef<CatalogTrack[]>([])
+  const runtime = useMemo(
+    () =>
+      createRuntime({
+        engine,
+        resolveTrack: (trackId) => tracksRef.current.find((track) => track.trackId === trackId),
+      }),
+    [engine],
+  )
+
+  const [client, setClient] = useState<VdapClient | null>(null)
+  const [runtimeState, setRuntimeState] = useState<RuntimeState | null>(null)
+  const [audioReady, setAudioReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tracks, setTracks] = useState<CatalogTrack[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
-  const [loadingDeck, setLoadingDeck] = useState<DeckId | null>(null)
-  const [deckTracks, setDeckTracks] = useState<Partial<Record<DeckId, CatalogTrack>>>({})
   const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const [tempoMultipliers, setTempoMultipliers] = useState<Record<DeckId, TempoMultiplier>>({ A: 1, B: 1 })
   const [selectedCueSlots, setSelectedCueSlots] = useState<Record<DeckId, number>>({ A: 1, B: 1 })
+  const objectUrls = useRef<Partial<Record<DeckId, string>>>({})
+
+  useEffect(() => engine.subscribe((snapshot) => setAudioReady(snapshot.audioReady)), [engine])
 
   useEffect(() => {
-    const unsubscribe = engine.subscribe(setMixer)
+    const vdap = runtime.createUiClient()
+    let disposed = false
+    void (async () => {
+      await vdap.hello()
+      const initial = await vdap.query('state.get', {})
+      if (disposed) return
+      setRuntimeState(initial)
+      await vdap.subscribeState((message) => {
+        if (message.kind !== 'snapshot') return
+        const { vdap: _vdap, kind: _kind, ...state } = message
+        setRuntimeState(state as RuntimeState)
+      })
+      if (!disposed) setClient(vdap)
+    })().catch((cause) => {
+      setError(cause instanceof Error ? cause.message : 'Runtimeを初期化できませんでした。')
+    })
     return () => {
-      unsubscribe()
+      disposed = true
+      setClient(null)
+      vdap.close()
+      runtime.dispose()
       engine.dispose()
     }
-  }, [engine])
+  }, [engine, runtime])
 
   useEffect(() => {
     const controller = new AbortController()
     fetchCatalog(controller.signal)
-      .then(setTracks)
+      .then((loaded) => {
+        tracksRef.current = loaded
+        setTracks(loaded)
+      })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         setError(cause instanceof Error ? cause.message : '楽曲カタログを読み込めませんでした。')
@@ -48,110 +92,163 @@ export default function App() {
     return () => controller.abort()
   }, [])
 
-  const loadTrack = async (id: DeckId, file: File) => {
-    try {
-      setError(null)
-      setSyncNotice(null)
-      setTempoMultipliers((current) => ({ ...current, [id]: 1 }))
-      setSelectedCueSlots((current) => ({ ...current, [id]: 1 }))
-      setDeckTracks((current) => ({ ...current, [id]: undefined }))
-      await engine.resume()
-      await engine.loadFile(id, file)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '音源を読み込めませんでした。')
+  const anyPlaying =
+    runtimeState !== null &&
+    (runtimeState.decks.A.transport.phase === 'playing' ||
+      runtimeState.decks.B.transport.phase === 'playing')
+
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!anyPlaying) return
+    const ticker = window.setInterval(() => setTick((value) => value + 1), 100)
+    return () => window.clearInterval(ticker)
+  }, [anyPlaying])
+
+  const run = (operation: (vdap: VdapClient) => Promise<void>) => {
+    if (!client) {
+      setError('Runtimeを初期化中です。少し待ってから操作してください。')
+      return
     }
+    setError(null)
+    void operation(client).catch((cause) => {
+      if (cause instanceof VdapClientError) setError(cause.ack?.error.message ?? cause.message)
+      else setError(cause instanceof Error ? cause.message : '操作に失敗しました。')
+    })
   }
 
-  const loadCatalogTrack = async (id: DeckId, track: CatalogTrack) => {
-    try {
-      setError(null)
-      setSyncNotice(null)
-      setLoadingDeck(id)
-      await engine.resume()
-      await engine.loadUrl(id, trackAudioUrl(track), track.title)
-      setDeckTracks((current) => ({ ...current, [id]: track }))
-      setTempoMultipliers((current) => ({ ...current, [id]: 1 }))
-      setSelectedCueSlots((current) => ({ ...current, [id]: 1 }))
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'カタログ音源を読み込めませんでした。')
-    } finally {
-      setLoadingDeck(null)
-    }
+  const resetDeckUiState = (id: DeckId) => {
+    setSyncNotice(null)
+    setTempoMultipliers((current) => ({ ...current, [id]: 1 }))
+    setSelectedCueSlots((current) => ({ ...current, [id]: 1 }))
   }
 
-  const togglePlayback = async (id: DeckId) => {
-    try {
-      setError(null)
-      if (mixer.decks[id].playing) engine.pause(id)
-      else await engine.play(id)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '音声を再生できませんでした。')
-    }
-  }
-
-  const enableAudio = async () => {
-    try {
-      setError(null)
+  const loadCatalogTrack = (id: DeckId, track: CatalogTrack) =>
+    run(async (vdap) => {
       await engine.resume()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Audioを有効にできませんでした。')
-    }
-  }
+      await settle(vdap.mutate('deck.load', { deckId: id, source: { kind: 'catalog', trackId: track.trackId } }))
+      resetDeckUiState(id)
+    })
+
+  const loadFileTrack = (id: DeckId, file: File) =>
+    run(async (vdap) => {
+      await engine.resume()
+      const previous = objectUrls.current[id]
+      const url = URL.createObjectURL(file)
+      objectUrls.current[id] = url
+      try {
+        await settle(vdap.mutate('deck.load', { deckId: id, source: { kind: 'url', url, title: file.name } }))
+      } finally {
+        if (previous) URL.revokeObjectURL(previous)
+      }
+      resetDeckUiState(id)
+    })
+
+  const togglePlayback = (id: DeckId) =>
+    run(async (vdap) => {
+      const playing = runtimeState?.decks[id].transport.phase === 'playing'
+      if (!playing) await engine.resume()
+      await settle(vdap.mutate(playing ? 'deck.pause' : 'deck.play', { deckId: id }))
+    })
+
+  const seekDeck = (id: DeckId, seconds: number, resume: 'keep' | 'pause' = 'keep') =>
+    run(async (vdap) => {
+      await settle(
+        vdap.mutate('deck.seek', {
+          deckId: id,
+          target: { type: 'sourceSeconds', sourceSeconds: Math.max(0, seconds) },
+          resume,
+        }),
+      )
+    })
 
   const syncTempoTo = (masterId: DeckId) => {
     const followerId: DeckId = masterId === 'A' ? 'B' : 'A'
-    const masterTrack = deckTracks[masterId]
-    const followerTrack = deckTracks[followerId]
-    if (!masterTrack || !followerTrack) return
+    const masterTrack = deckTrack(masterId)
+    const followerTrack = deckTrack(followerId)
+    const master = runtimeState?.decks[masterId]
+    if (!masterTrack || !followerTrack || !master) return
 
-    try {
-      setError(null)
+    run(async (vdap) => {
       const result = calculateTempoSync(
         interpretedBpm(masterTrack.bpm, tempoMultipliers[masterId]),
-        mixer.decks[masterId].playbackRate,
+        master.playback.configuredVelocity,
         interpretedBpm(followerTrack.bpm, tempoMultipliers[followerId]),
       )
-      engine.setPlaybackRate(followerId, result.playbackRate)
+      await settle(vdap.mutate('deck.setVelocity', { deckId: followerId, velocity: result.playbackRate }))
       setSyncNotice(
         result.exact
           ? `Deck ${followerId} synced to Deck ${masterId} at ${result.targetBpm.toFixed(1)} BPM.`
           : `Deck ${followerId} reached its speed limit (${result.playbackRate.toFixed(2)}×); exact ${result.targetBpm.toFixed(1)} BPM sync is unavailable.`,
       )
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'テンポを同期できませんでした。')
-    }
+    })
   }
 
-  const tempoSyncDisabled = !deckTracks.A || !deckTracks.B || loadingDeck !== null
-
   const triggerCue = (id: DeckId) => {
-    const cue = deckTracks[id]?.performancePads.find((pad) => pad.slot === selectedCueSlots[id])
-    if (!cue) {
-      engine.stop(id)
-      return
-    }
-    engine.pause(id)
-    engine.seek(id, cue.sourceSeconds)
+    const cue = deckTrack(id)?.performancePads.find((pad) => pad.slot === selectedCueSlots[id])
+    seekDeck(id, cue?.sourceSeconds ?? 0, 'pause')
   }
 
   const triggerPerformancePad = (id: DeckId, slot: number, seconds: number) => {
     setSelectedCueSlots((current) => ({ ...current, [id]: slot }))
-    engine.seek(id, seconds)
+    seekDeck(id, seconds)
   }
+
+  const panic = () => run(async (vdap) => settle(vdap.mutate('runtime.panic', {})))
+
+  const enableAudio = () => {
+    setError(null)
+    engine.resume().catch((cause) => {
+      setError(cause instanceof Error ? cause.message : 'Audioを有効にできませんでした。')
+    })
+  }
+
+  const deckTrack = (id: DeckId): CatalogTrack | undefined => {
+    const trackId = runtimeState?.decks[id].binding?.trackId
+    return trackId ? tracks.find((track) => track.trackId === trackId) : undefined
+  }
+
+  const deckView = (id: DeckId): DeckSnapshot => {
+    const deck = runtimeState?.decks[id]
+    if (!deck) return emptyDeckView(id)
+    const duration = deck.binding?.durationSeconds ?? 0
+    const playing = deck.transport.phase === 'playing'
+    const elapsed = playing
+      ? Math.max(0, runtimeNow() - deck.playback.position.atRuntimeTime) * deck.playback.headVelocity
+      : 0
+    return {
+      id,
+      name: deck.binding?.source.title ?? null,
+      duration,
+      position: Math.min(deck.playback.position.sourceSeconds + elapsed, duration),
+      gain: deck.gain,
+      playbackRate: deck.playback.configuredVelocity,
+      playing,
+      loaded: deck.binding !== null,
+    }
+  }
+
+  const loadingDeck: DeckId | null =
+    runtimeState?.decks.A.load.phase === 'loading'
+      ? 'A'
+      : runtimeState?.decks.B.load.phase === 'loading'
+        ? 'B'
+        : null
+
+  const tempoSyncDisabled = !deckTrack('A') || !deckTrack('B') || loadingDeck !== null
 
   const deckProps = (id: DeckId) => ({
     id,
-    deck: mixer.decks[id],
-    track: deckTracks[id],
+    deck: deckView(id),
+    track: deckTrack(id),
     loading: loadingDeck === id,
-    onFile: (file: File) => void loadTrack(id, file),
-    onPlayPause: () => void togglePlayback(id),
+    onFile: (file: File) => loadFileTrack(id, file),
+    onPlayPause: () => togglePlayback(id),
     onCue: () => triggerCue(id),
-    onSeek: (seconds: number) => engine.seek(id, seconds),
-    onGain: (value: number) => engine.setDeckGain(id, value),
+    onSeek: (seconds: number) => seekDeck(id, seconds),
+    onGain: (value: number) => run(async (vdap) => settle(vdap.mutate('deck.setGain', { deckId: id, gain: value }))),
     onRate: (value: number) => {
       setSyncNotice(null)
-      engine.setPlaybackRate(id, value)
+      run(async (vdap) => settle(vdap.mutate('deck.setVelocity', { deckId: id, velocity: value })))
     },
     onTempoSync: () => syncTempoTo(id),
     tempoSyncDisabled,
@@ -164,6 +261,9 @@ export default function App() {
     onPerformancePad: (slot: number, seconds: number) => triggerPerformancePad(id, slot, seconds),
   })
 
+  const crossfader = runtimeState?.mixer.crossfader.effective ?? 0
+  const masterGain = runtimeState?.mixer.masterGain ?? 1
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -174,10 +274,15 @@ export default function App() {
             <h1>VIBRAXIS</h1>
           </div>
         </div>
-        <button className={`audio-status ${mixer.audioReady ? 'audio-status--ready' : ''}`} onClick={() => void enableAudio()}>
-          <span />
-          {mixer.audioReady ? 'AUDIO ACTIVE' : 'ENABLE AUDIO'}
-        </button>
+        <div className="topbar__actions">
+          <button className={`audio-status ${audioReady ? 'audio-status--ready' : ''}`} onClick={enableAudio}>
+            <span />
+            {audioReady ? 'AUDIO ACTIVE' : 'ENABLE AUDIO'}
+          </button>
+          <button className="panic-button" onClick={panic} title="Stop all decks immediately">
+            PANIC
+          </button>
+        </div>
       </header>
 
       {error && <div className="error-banner" role="alert">{error}</div>}
@@ -194,15 +299,18 @@ export default function App() {
 
           <label className="master-control">
             <span>MASTER VOLUME</span>
-            <output>{Math.round(mixer.masterVolume * 100)}%</output>
+            <output>{Math.round(masterGain * 100)}%</output>
             <input
               aria-label="Master volume"
               type="range"
               min="0"
               max="1"
               step="0.01"
-              value={mixer.masterVolume}
-              onChange={(event) => engine.setMasterVolume(Number(event.target.value))}
+              value={masterGain}
+              onChange={(event) => {
+                const gain = Number(event.target.value)
+                run(async (vdap) => settle(vdap.mutate('mixer.setMasterGain', { gain })))
+              }}
             />
           </label>
 
@@ -223,10 +331,18 @@ export default function App() {
               min="-1"
               max="1"
               step="0.01"
-              value={mixer.crossfader}
-              onChange={(event) => engine.setCrossfader(Number(event.target.value))}
+              value={crossfader}
+              onChange={(event) => {
+                const position = Number(event.target.value)
+                run(async (vdap) => settle(vdap.mutate('mixer.setCrossfader', { position })))
+              }}
             />
-            <button className="center-button" onClick={() => engine.setCrossfader(0)}>CENTER</button>
+            <button
+              className="center-button"
+              onClick={() => run(async (vdap) => settle(vdap.mutate('mixer.setCrossfader', { position: 0 })))}
+            >
+              CENTER
+            </button>
           </div>
 
           <div className="signal-flow">
@@ -242,16 +358,16 @@ export default function App() {
         loading={catalogLoading}
         loadingDeck={loadingDeck}
         loadedTrackIds={{
-          A: deckTracks.A?.trackId,
-          B: deckTracks.B?.trackId,
+          A: deckTrack('A')?.trackId,
+          B: deckTrack('B')?.trackId,
         }}
-        onLoad={(deck, track) => void loadCatalogTrack(deck, track)}
+        onLoad={(deck, track) => loadCatalogTrack(deck, track)}
       />
 
       <footer className="footer">
         <span>ANALYZED LOCAL LIBRARY</span>
+        <span>VDAP RUNTIME · MESSAGEPORT</span>
         <span>2 DECKS · EQUAL POWER MIX</span>
-        <span>NO AUDIO UPLOAD</span>
       </footer>
     </main>
   )

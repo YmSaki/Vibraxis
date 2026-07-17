@@ -165,6 +165,15 @@ export class DeckEngine {
     this.emit()
   }
 
+  unload(id: DeckId): void {
+    const deck = this.decks[id]
+    this.stop(id)
+    deck.loadGeneration += 1
+    deck.buffer = null
+    deck.name = null
+    this.emit()
+  }
+
   seek(id: DeckId, seconds: number): void {
     const deck = this.decks[id]
     const wasPlaying = deck.playing

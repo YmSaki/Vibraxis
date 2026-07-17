@@ -130,6 +130,11 @@ export class CommandDispatcher {
     })
   }
 
+  /** Whether the connection has an active state subscription (used by the runtime to route snapshots). */
+  isSubscribed(connectionId: string): boolean {
+    return this.subscriptions.has(connectionId)
+  }
+
   handle = async (
     request: RuntimeRequestEnvelope,
     context: RuntimeRequestContext,

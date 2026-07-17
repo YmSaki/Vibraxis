@@ -144,6 +144,10 @@ export class MessagePortTransport {
     return this.post(this.connections[role], message)
   }
 
+  connectionIdFor(role: RuntimePortRole): string {
+    return this.connections[role].connectionId
+  }
+
   broadcast(message: VdapOutboundMessage): void {
     this.sendTo('ui', message)
     this.sendTo('agent', message)

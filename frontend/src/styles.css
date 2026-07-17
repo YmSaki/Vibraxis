@@ -79,6 +79,19 @@ h1 { font-size: 27px; letter-spacing: .16em; }
 .audio-status span { width: 7px; height: 7px; border-radius: 50%; background: #667080; }
 .audio-status--ready span { background: #55f59a; box-shadow: 0 0 12px #55f59a; }
 
+.topbar__actions { display: flex; align-items: center; gap: 10px; }
+.panic-button {
+  border: 1px solid #9b3952;
+  background: #200b12;
+  color: #ff7d9d;
+  padding: 10px 14px;
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 12px;
+  letter-spacing: .13em;
+  cursor: pointer;
+}
+.panic-button:hover { background: #32141d; }
+
 .error-banner {
   margin-bottom: 14px;
   padding: 10px 14px;
