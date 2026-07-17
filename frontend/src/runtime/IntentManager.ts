@@ -109,6 +109,18 @@ export type CancelByFilterResult = {
   events: IntentCancelledEvent[]
 }
 
+export type CancelMatchingResult = CancelByFilterResult
+
+export type CompleteWithCancellationResult = {
+  terminal: IntentCompletedEvent
+  cancelled: IntentCancelledEvent[]
+}
+
+export type CompleteWithFilteredCancellationResult = CompleteWithCancellationResult & {
+  cancelledCount: number
+  skippedCount: number
+}
+
 export type IntentManagerOptions = {
   state: IntentStateAdapter
   nextIntentId: () => IntentId
@@ -160,6 +172,40 @@ export class IntentManager {
       cancelled: cancelled.map((candidate) =>
         cancelledEvent(candidate, 'userOverride', transaction),
       ),
+    }
+  }
+
+  /** Accepts an emergency command without applying normal conflict priority. */
+  acceptUncontested(
+    input: AcceptIntentInput,
+    effect?: RuntimeStateEffect,
+  ): AcceptedIntent {
+    const intentId = this.nextIntentId()
+    const when = input.when ?? { at: 'immediate' }
+    const intent: IntentState = {
+      intentId,
+      requestId: input.requestId,
+      command: input.command,
+      origin: input.origin,
+      state: when.at === 'immediate' ? 'executing' : 'scheduled',
+      target: input.target,
+      domain: input.domain,
+      when,
+      ...(input.scheduledFor ? { scheduledFor: input.scheduledFor } : {}),
+    }
+    const transaction = this.state.transaction((current) => {
+      if (current[intentId] || this.terminalIntentIds.has(intentId)) {
+        throw new Error(`Intent id '${intentId}' has already been used.`)
+      }
+      return { intents: { ...current, [intentId]: intent }, value: intent }
+    }, effect)
+    if (!transaction) throw new Error('Emergency Intent acceptance unexpectedly failed.')
+    return {
+      accepted: true,
+      intent: transaction.value,
+      revision: transaction.revision,
+      runtimeTime: transaction.runtimeTime,
+      cancelled: [],
     }
   }
 
@@ -229,6 +275,106 @@ export class IntentManager {
       result,
       ...(degraded ? { degraded } : {}),
     }), effect)
+  }
+
+  completeWithCancellation(
+    intentId: IntentId,
+    predicate: (intent: Readonly<IntentState>) => boolean,
+    reason: IntentCancelReason,
+    result: CommandResult = {},
+    effect?: RuntimeStateEffect,
+  ): CompleteWithCancellationResult | null {
+    if (this.terminalIntentIds.has(intentId)) return null
+    const transaction = this.state.transaction((current) => {
+      const completing = current[intentId]
+      if (!completing || this.terminalIntentIds.has(intentId)) return null
+      const cancelled = Object.values(current).filter((intent) =>
+        intent.intentId !== intentId && predicate(intent),
+      )
+      const intents = { ...current }
+      delete intents[intentId]
+      for (const intent of cancelled) delete intents[intent.intentId]
+      return { intents, value: { completing, cancelled } }
+    }, effect)
+    if (!transaction) return null
+
+    this.terminalIntentIds.add(intentId)
+    for (const intent of transaction.value.cancelled) {
+      this.terminalIntentIds.add(intent.intentId)
+    }
+    return {
+      terminal: {
+        vdap: VDAP_VERSION,
+        kind: 'event',
+        event: 'intent.completed',
+        intentId: transaction.value.completing.intentId,
+        requestId: transaction.value.completing.requestId,
+        revision: transaction.revision,
+        runtimeTime: transaction.runtimeTime,
+        result,
+      },
+      cancelled: transaction.value.cancelled.map((intent) =>
+        cancelledEvent(intent, reason, transaction),
+      ),
+    }
+  }
+
+  completeWithFilteredCancellation(
+    intentId: IntentId,
+    filter: ScheduleCancelFilter,
+    reason: IntentCancelReason,
+    requesterOrigin: VdapOrigin,
+    effect?: RuntimeStateEffect,
+  ): CompleteWithFilteredCancellationResult | null {
+    if (this.terminalIntentIds.has(intentId)) return null
+    const transaction = this.state.transaction((current) => {
+      const completing = current[intentId]
+      if (!completing || this.terminalIntentIds.has(intentId)) return null
+      // The command performing the cancellation is never part of its own
+      // match set, including for `{ all: true }`.
+      const matches = Object.values(current).filter((intent) =>
+        intent.intentId !== intentId && matchesFilter(intent, filter),
+      )
+      const cancelled = matches.filter((intent) =>
+        isCancellablePendingWork(intent)
+        && (requesterOrigin !== 'agent' || intent.origin !== 'user'),
+      )
+      const skippedCount = matches.length - cancelled.length
+      const intents = { ...current }
+      delete intents[intentId]
+      for (const intent of cancelled) delete intents[intent.intentId]
+      return {
+        intents,
+        value: { completing, cancelled, skippedCount },
+      }
+    }, effect)
+    if (!transaction) return null
+
+    this.terminalIntentIds.add(intentId)
+    for (const intent of transaction.value.cancelled) {
+      this.terminalIntentIds.add(intent.intentId)
+    }
+    const cancelledCount = transaction.value.cancelled.length
+    return {
+      terminal: {
+        vdap: VDAP_VERSION,
+        kind: 'event',
+        event: 'intent.completed',
+        intentId: transaction.value.completing.intentId,
+        requestId: transaction.value.completing.requestId,
+        revision: transaction.revision,
+        runtimeTime: transaction.runtimeTime,
+        result: {
+          cancelledCount,
+          skippedCount: transaction.value.skippedCount,
+        },
+      },
+      cancelled: transaction.value.cancelled.map((intent) =>
+        cancelledEvent(intent, reason, transaction),
+      ),
+      cancelledCount,
+      skippedCount: transaction.value.skippedCount,
+    }
   }
 
   fail(
@@ -301,6 +447,30 @@ export class IntentManager {
     return {
       cancelledCount: transaction.value.length,
       skippedCount,
+      events: transaction.value.map((intent) =>
+        cancelledEvent(intent, reason, transaction),
+      ),
+    }
+  }
+
+  cancelMatching(
+    predicate: (intent: Readonly<IntentState>) => boolean,
+    reason: IntentCancelReason,
+    effect?: RuntimeStateEffect,
+  ): CancelMatchingResult {
+    const transaction = this.state.transaction((current) => {
+      const selected = Object.values(current).filter(predicate)
+      if (selected.length === 0) return null
+      const intents = { ...current }
+      for (const intent of selected) delete intents[intent.intentId]
+      return { intents, value: selected }
+    }, effect)
+    if (!transaction) return { cancelledCount: 0, skippedCount: 0, events: [] }
+
+    for (const intent of transaction.value) this.terminalIntentIds.add(intent.intentId)
+    return {
+      cancelledCount: transaction.value.length,
+      skippedCount: 0,
       events: transaction.value.map((intent) =>
         cancelledEvent(intent, reason, transaction),
       ),
