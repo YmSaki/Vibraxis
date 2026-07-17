@@ -3,13 +3,18 @@
   "tracks": [
     {
       "trackId": "126_long_bpm142",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "126_long_BPM142.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/126_long_BPM142.mp3",
-      "title": "126 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "energetic",
+        "emotional",
+        "cool",
+        "stylish"
+      ],
+      "sourceUrl": "https://bgmer.net/music/126",
+      "title": "セツナフィーバー",
       "analysisFile": "data/analysis/126_long_bpm142.json",
       "bpm": 142.0,
       "key": "A#",
@@ -665,17 +670,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "127_long_bpm155",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "127_long_BPM155.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/127_long_BPM155.mp3",
-      "title": "127 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "energetic",
+        "emotional",
+        "nostalgic",
+        "uplifting"
+      ],
+      "sourceUrl": "https://bgmer.net/music/127",
+      "title": "望郷性シグナル",
       "analysisFile": "data/analysis/127_long_bpm155.json",
       "bpm": 155.0,
       "key": "D",
@@ -1364,17 +1374,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "233_long_bpm163",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "233_long_BPM163.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/233_long_BPM163.mp3",
-      "title": "233 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "energetic",
+        "happy",
+        "cute",
+        "playful"
+      ],
+      "sourceUrl": "https://bgmer.net/music/233",
+      "title": "空想キャンパス",
       "analysisFile": "data/analysis/233_long_bpm163.json",
       "bpm": 163.0,
       "key": "E",
@@ -2115,17 +2130,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "236_long_bpm87",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "236_long_BPM87.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/236_long_BPM87.mp3",
-      "title": "236 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "chill",
+        "mysterious",
+        "moody",
+        "calm"
+      ],
+      "sourceUrl": "https://bgmer.net/music/236",
+      "title": "眠れる世界樹",
       "analysisFile": "data/analysis/236_long_bpm87.json",
       "bpm": 87.0,
       "key": "E",
@@ -2568,17 +2588,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "239_long_bpm88",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "239_long_BPM88.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/239_long_BPM88.mp3",
-      "title": "239 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "chill",
+        "laidback",
+        "calm",
+        "moody"
+      ],
+      "sourceUrl": "https://bgmer.net/music/239",
+      "title": "夢うつつバイパス",
       "analysisFile": "data/analysis/239_long_bpm88.json",
       "bpm": 88.0,
       "key": "E",
@@ -3054,17 +3079,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "249_long_bpm118",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "249_long_BPM118.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/249_long_BPM118.mp3",
-      "title": "249 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "happy",
+        "upbeat",
+        "cool",
+        "stylish"
+      ],
+      "sourceUrl": "https://bgmer.net/music/249",
+      "title": "虹の根本まで",
       "analysisFile": "data/analysis/249_long_bpm118.json",
       "bpm": 118.0,
       "key": "C",
@@ -3656,17 +3686,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "276_long_bpm103",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "276_long_BPM103.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/276_long_BPM103.mp3",
-      "title": "276 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "uplifting",
+        "emotional",
+        "cool",
+        "moody"
+      ],
+      "sourceUrl": "https://bgmer.net/music/276",
+      "title": "遊星の開拓者",
       "analysisFile": "data/analysis/276_long_bpm103.json",
       "bpm": 103.0,
       "key": "F#",
@@ -4215,17 +4250,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "301_long_bpm145",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "301_long_BPM145.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/301_long_BPM145.mp3",
-      "title": "301 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "energetic",
+        "tropical",
+        "happy",
+        "upbeat"
+      ],
+      "sourceUrl": "https://bgmer.net/music/301",
+      "title": "イビサな気分",
       "analysisFile": "data/analysis/301_long_bpm145.json",
       "bpm": 145.0,
       "key": "C#",
@@ -4848,17 +4888,22 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     },
     {
       "trackId": "386_long_bpm98",
-      "artist": "Unknown",
+      "artist": "BGMer",
       "file": "386_long_BPM98.mp3",
-      "genre": "Unknown",
-      "license": "Unverified local sample",
-      "mood": [],
-      "sourceUrl": "local:data/sample/386_long_BPM98.mp3",
-      "title": "386 long",
+      "genre": "edm",
+      "license": "BGMer License (free for personal/commercial use, modification and redistribution permitted; see https://bgmer.net/terms)",
+      "mood": [
+        "chill",
+        "gentle",
+        "laidback",
+        "happy"
+      ],
+      "sourceUrl": "https://bgmer.net/music/386",
+      "title": "ウタタネロンド",
       "analysisFile": "data/analysis/386_long_bpm98.json",
       "bpm": 98.0,
       "key": "G",
@@ -5390,7 +5435,7 @@
         "harmony": "partial",
         "structure": "partial"
       },
-      "licenseStatus": "unverified"
+      "licenseStatus": "verified"
     }
   ]
 }
