@@ -106,7 +106,7 @@ sequenceDiagram
 - [x] 順序0: ゴールデンパスを阻むVDAP契約を固定
 - [x] 順序1: デモ用JSON Schema・TypeScript型
 - [x] 順序2: 正準Runtime StoreとMessagePort縦切り
-- [ ] 順序3: 安全な2デッキ音声基盤
+- [x] 順序3: 安全な2デッキ音声基盤（staged load・最終リミッター・/api/analysis・解析binding・deck.ended済み。OfflineAudioContextのpeak≤0.95自動レンダ検証とpanic 50ms計測は未自動化 — 順序7のデモsmoke時に実測で代替する）
 - [ ] 順序4: 最小Beat Transition
 - [ ] 順序5: 決定論的DJロジック
 - [ ] 順序6: GPT-5.6 Intent + Codex DJ Agent Provider
