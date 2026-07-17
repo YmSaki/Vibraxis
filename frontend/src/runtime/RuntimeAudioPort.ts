@@ -30,6 +30,8 @@ export interface RuntimeAudioPort {
   setCrossfader(position: number): Promise<void>
   setMasterGain(gain: number): Promise<void>
   panic(scope: RuntimePanicParams['scope']): Promise<Partial<Record<DeckId, PositionPair>>>
+  /** Optional: notifies the runtime when a deck reaches the natural end of its track. */
+  onTrackEnded?(listener: (deckId: DeckId, position: PositionPair) => void): () => void
 }
 
 export class RuntimeAudioError extends Error {

@@ -6,6 +6,8 @@ import type {
   TrackBinding,
   VdapErrorCode,
 } from '@vibraxis/shared/vdap'
+import type { TrackAnalysis } from '@vibraxis/shared/analysis'
+import { fetchTrackAnalysis, toBindingAnalysis } from '../analysis'
 import type { DeckEngine } from '../audio/DeckEngine'
 import { trackAudioUrl, type CatalogTrack } from '../catalog'
 import {
@@ -22,6 +24,8 @@ export type DeckEngineAudioPortOptions = {
   resolveTrack: TrackResolver
   now: () => number
   nextBindingId?: () => string
+  /** Test seam: overrides the /api/analysis fetch for catalog tracks. */
+  fetchAnalysis?: (trackId: string) => Promise<TrackAnalysis>
 }
 
 /**
@@ -35,6 +39,7 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
   readonly #resolveTrack: TrackResolver
   readonly #now: () => number
   readonly #nextBindingId: () => string
+  readonly #fetchAnalysis: (trackId: string) => Promise<TrackAnalysis>
 
   constructor(options: DeckEngineAudioPortOptions) {
     this.#engine = options.engine
@@ -42,18 +47,29 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
     this.#now = options.now
     let sequence = 0
     this.#nextBindingId = options.nextBindingId ?? (() => `bind-${++sequence}`)
+    this.#fetchAnalysis = options.fetchAnalysis ?? fetchTrackAnalysis
   }
 
   async load(params: DeckLoadParams): Promise<AudioLoadResult> {
-    if (params.requireAnalysis) {
-      throw audioPortError(
-        'E_ANALYSIS_UNAVAILABLE',
-        'Analysis binding is not available in the P0 audio slice.',
-      )
-    }
     const source = this.resolveSource(params.source)
+
+    // Audio and analysis are fetched in parallel; both must settle before the
+    // binding commits so a binding is never half-analyzed.
+    let analysisError: string | null = null
+    const analysisPromise: Promise<TrackAnalysis | null> =
+      source.kind === 'catalog'
+        ? this.#fetchAnalysis(source.trackId).catch((cause: unknown) => {
+            analysisError = cause instanceof Error ? cause.message : 'Analysis fetch failed.'
+            return null
+          })
+        : Promise.resolve(null)
+
+    let analysis: TrackAnalysis | null
     try {
-      await this.#engine.loadUrl(params.deckId, source.uri, source.title)
+      ;[, analysis] = await Promise.all([
+        this.#engine.loadUrl(params.deckId, source.uri, source.title),
+        analysisPromise,
+      ])
     } catch (cause) {
       throw audioPortError(
         'E_LOAD_FAILED',
@@ -65,6 +81,12 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
     if (!deck.loaded) {
       throw audioPortError('E_LOAD_FAILED', 'Load was superseded by a newer load.', true)
     }
+    if (params.requireAnalysis && !analysis) {
+      throw audioPortError(
+        'E_ANALYSIS_UNAVAILABLE',
+        analysisError ?? `No analysis is available for ${source.trackId}.`,
+      )
+    }
     const startSeconds = params.initialPosition?.sourceSeconds ?? 0
     if (startSeconds > 0) this.#engine.seek(params.deckId, startSeconds)
 
@@ -72,11 +94,17 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
       bindingId: this.#nextBindingId(),
       trackId: source.trackId,
       source: { kind: source.kind, uri: source.uri, title: source.title },
-      sha256: null,
+      sha256: analysis?.source.sha256 ?? null,
       durationSeconds: deck.duration,
-      analysis: null,
+      analysis: analysis ? toBindingAnalysis(analysis) : null,
     }
     return { binding, position: this.position(params.deckId) }
+  }
+
+  onTrackEnded(listener: (deckId: DeckId, position: PositionPair) => void): () => void {
+    return this.#engine.onEnded((deckId, positionSeconds) =>
+      listener(deckId, { sourceSeconds: positionSeconds, atRuntimeTime: this.#now() }),
+    )
   }
 
   async unload(deckId: DeckId): Promise<void> {

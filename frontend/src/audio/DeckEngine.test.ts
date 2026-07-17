@@ -14,11 +14,21 @@ class FakeGain {
   connect(): void {}
 }
 
+class FakeCompressor {
+  threshold = new FakeParam()
+  knee = new FakeParam()
+  ratio = new FakeParam()
+  attack = new FakeParam()
+  release = new FakeParam()
+  connect(): void {}
+}
+
 class FakeContext {
   currentTime = 0
   state: AudioContextState = 'suspended'
   destination = {}
   gains: FakeGain[] = []
+  compressors: FakeCompressor[] = []
   resumeError: Error | null = null
   deferredDecode = false
   decodeResolvers: Array<(buffer: AudioBuffer) => void> = []
@@ -27,6 +37,12 @@ class FakeContext {
     const gain = new FakeGain()
     this.gains.push(gain)
     return gain
+  }
+
+  createDynamicsCompressor(): FakeCompressor {
+    const compressor = new FakeCompressor()
+    this.compressors.push(compressor)
+    return compressor
   }
 
   async resume(): Promise<void> {
@@ -138,5 +154,31 @@ describe('DeckEngine mixer routing', () => {
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+
+  it('routes the master bus through a limiter for final peak protection', () => {
+    const context = new FakeContext()
+    void new DeckEngine(context as unknown as AudioContext)
+
+    expect(context.compressors).toHaveLength(1)
+    const limiter = context.compressors[0]
+    expect(limiter.threshold.value).toBeLessThan(0)
+    expect(limiter.ratio.value).toBeGreaterThanOrEqual(20)
+  })
+
+  it('staged load failure leaves the previous track fully intact', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('A', fakeFile('old.mp3'))
+
+    const failing = {
+      name: 'bad.mp3',
+      arrayBuffer: () => Promise.reject(new Error('network down')),
+    } as unknown as File
+    await expect(engine.loadFile('A', failing)).rejects.toThrow('network down')
+
+    const deck = engine.snapshot().decks.A
+    expect(deck.loaded).toBe(true)
+    expect(deck.name).toBe('old.mp3')
   })
 })

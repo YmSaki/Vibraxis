@@ -37,12 +37,15 @@ type DeckGraph = {
 }
 
 type Listener = (snapshot: MixerSnapshot) => void
+type EndedListener = (id: DeckId, positionSeconds: number) => void
 
 export class DeckEngine {
   private readonly context: AudioContext
   private readonly masterGain: GainNode
+  private readonly limiter: DynamicsCompressorNode
   private readonly decks: Record<DeckId, DeckGraph>
   private readonly listeners = new Set<Listener>()
+  private readonly endedListeners = new Set<EndedListener>()
   private crossfader = 0
   private masterVolume = 0.8
   private ticker: number | null = null
@@ -52,7 +55,17 @@ export class DeckEngine {
     this.context = context
     this.masterGain = context.createGain()
     this.masterGain.gain.value = this.masterVolume
-    this.masterGain.connect(context.destination)
+    // Final peak protection: even with both decks at maximum gain through the
+    // crossfader center, the output must not clip. A hard-knee compressor just
+    // below 0 dBFS acts as the safety limiter required by the VDAP roadmap.
+    this.limiter = context.createDynamicsCompressor()
+    this.limiter.threshold.value = -1
+    this.limiter.knee.value = 0
+    this.limiter.ratio.value = 20
+    this.limiter.attack.value = 0.003
+    this.limiter.release.value = 0.25
+    this.masterGain.connect(this.limiter)
+    this.limiter.connect(context.destination)
     this.decks = {
       A: this.createDeck(),
       B: this.createDeck(),
@@ -79,21 +92,24 @@ export class DeckEngine {
     })
   }
 
+  /**
+   * Staged load: the current buffer keeps playing untouched while the new
+   * source is fetched and decoded. The live deck is only mutated after a
+   * successful decode; a failed or superseded load leaves the old audio,
+   * name, and transport state fully intact.
+   */
   private async loadArrayBuffer(
     id: DeckId,
     name: string,
     read: () => Promise<ArrayBuffer>,
   ): Promise<void> {
     const deck = this.decks[id]
-    this.stop(id)
     const loadGeneration = ++deck.loadGeneration
-    deck.buffer = null
-    deck.name = null
-    this.emit()
     const data = await read()
     if (this.disposed || deck.loadGeneration !== loadGeneration) return
     const buffer = await this.context.decodeAudioData(data.slice(0))
     if (this.disposed || deck.loadGeneration !== loadGeneration) return
+    this.stop(id)
     deck.buffer = buffer
     deck.name = name
     deck.offset = 0
@@ -123,10 +139,12 @@ export class DeckEngine {
     const sourceGeneration = ++deck.generation
     source.onended = () => {
       if (deck.generation !== sourceGeneration || !deck.playing) return
+      const finalPosition = deck.buffer?.duration ?? this.positionFor(deck)
       deck.playing = false
       deck.source = null
       deck.offset = 0
       this.emit()
+      this.endedListeners.forEach((listener) => listener(id, finalPosition))
     }
     const startOffset = clamp(deck.offset, 0, Math.max(0, deck.buffer.duration - 0.01))
     deck.source = source
@@ -220,6 +238,12 @@ export class DeckEngine {
     return () => this.listeners.delete(listener)
   }
 
+  /** Fires when a deck reaches the natural end of its track. */
+  onEnded(listener: EndedListener): () => void {
+    this.endedListeners.add(listener)
+    return () => this.endedListeners.delete(listener)
+  }
+
   snapshot(): MixerSnapshot {
     return {
       decks: {
@@ -241,6 +265,7 @@ export class DeckEngine {
     this.stop('B')
     void this.context.close()
     this.listeners.clear()
+    this.endedListeners.clear()
   }
 
   private createDeck(): DeckGraph {

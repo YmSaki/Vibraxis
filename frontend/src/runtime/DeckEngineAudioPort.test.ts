@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TrackAnalysis } from '@vibraxis/shared/analysis'
 import { DeckEngine } from '../audio/DeckEngine'
 import type { CatalogTrack } from '../catalog'
 import { DeckEngineAudioPort } from './DeckEngineAudioPort'
@@ -30,13 +31,27 @@ class FakeContext {
   currentTime = 0
   state: AudioContextState = 'suspended'
   destination = {}
+  sources: FakeSource[] = []
 
   createGain(): FakeGain {
     return new FakeGain()
   }
 
+  createDynamicsCompressor() {
+    return {
+      threshold: new FakeParam(),
+      knee: new FakeParam(),
+      ratio: new FakeParam(),
+      attack: new FakeParam(),
+      release: new FakeParam(),
+      connect(): void {},
+    }
+  }
+
   createBufferSource(): FakeSource {
-    return new FakeSource()
+    const source = new FakeSource()
+    this.sources.push(source)
+    return source
   }
 
   async resume(): Promise<void> {
@@ -71,7 +86,7 @@ const track: CatalogTrack = {
   licenseStatus: 'verified',
 }
 
-function createPort() {
+function createPort(options: { fetchAnalysis?: () => Promise<TrackAnalysis> } = {}) {
   const context = new FakeContext()
   const engine = new DeckEngine(context as unknown as AudioContext)
   let time = 0
@@ -79,8 +94,45 @@ function createPort() {
     engine,
     resolveTrack: (trackId) => (trackId === track.trackId ? track : undefined),
     now: () => ++time,
+    fetchAnalysis: options.fetchAnalysis ?? (() => Promise.reject(new Error('no analysis in test'))),
   })
   return { context, engine, port }
+}
+
+function analysisFixture(): TrackAnalysis {
+  return {
+    schemaVersion: 2,
+    trackId: 'track-1',
+    source: { file: 'track1.mp3', sha256: 'sha-abc', durationSeconds: 30, sampleRate: 44100 },
+    analyzer: { provider: 'librosa', version: '1', analyzedAt: 'x', configHash: 'x' },
+    capabilities: {
+      features: { status: 'complete', provider: 'librosa', version: '1', confidence: 1, error: null },
+      beatGrid: { status: 'partial', provider: 'librosa', version: '1', confidence: 0.8, error: null },
+      harmony: { status: 'partial', provider: 'librosa', version: '1', confidence: 0.4, error: null },
+      structure: { status: 'partial', provider: 'librosa', version: '1', confidence: 0.5, error: null },
+    },
+    tempo: {
+      bpm: 120,
+      rawBpm: 120,
+      adjustment: 'none',
+      timeSignature: '4/4',
+      beatsSeconds: [0.5, 1, 1.5, 2],
+      downbeatsSeconds: [0.5],
+      barsSeconds: [0.5],
+    },
+    tonal: { key: 'A', scale: 'minor', camelot: '8A', confidence: 0.9, keyRegions: [] },
+    harmony: { chords: [] },
+    structure: { sections: [], phrases: [] },
+    features: {
+      energy: 0.6,
+      rms: 0.2,
+      loudnessDb: -12,
+      dynamicRangeDb: 8,
+      onsetRate: 2,
+      spectralCentroidHz: 2000,
+    },
+    overridesApplied: [],
+  } as unknown as TrackAnalysis
 }
 
 beforeEach(() => {
@@ -158,6 +210,53 @@ describe('DeckEngineAudioPort', () => {
       resume: 'keep',
     })
     expect(seeked.sourceSeconds).toBe(12)
+  })
+
+  it('binds analysis fetched in parallel with the audio', async () => {
+    const { port } = createPort({ fetchAnalysis: () => Promise.resolve(analysisFixture()) })
+    const result = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: true,
+    })
+    expect(result.binding.sha256).toBe('sha-abc')
+    const analysis = result.binding.analysis
+    expect(analysis).not.toBeNull()
+    expect(analysis?.bpm).toBe(120)
+    expect(analysis?.beatsPerBar).toBe(4)
+    expect(analysis?.beatCount).toBe(4)
+    expect(analysis?.barCount).toBe(1)
+    expect(analysis?.firstDownbeatSeconds).toBe(0.5)
+    expect(analysis?.camelot).toBe('8A')
+    expect(analysis?.grid).toEqual({ available: true, confidence: 0.8, status: 'partial' })
+  })
+
+  it('degrades to a null analysis binding unless the load requires analysis', async () => {
+    const { port } = createPort()
+    const result = await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    expect(result.binding.analysis).toBeNull()
+    await expect(
+      port.load({
+        deckId: 'B',
+        source: { kind: 'catalog', trackId: 'track-1' },
+        requireAnalysis: true,
+      }),
+    ).rejects.toSatisfy(
+      (cause) =>
+        cause instanceof RuntimeAudioError && cause.error.code === 'E_ANALYSIS_UNAVAILABLE',
+    )
+  })
+
+  it('reports natural track ends through onTrackEnded', async () => {
+    const { context, port } = createPort()
+    const ended: Array<{ deckId: string; sourceSeconds: number }> = []
+    port.onTrackEnded((deckId, position) =>
+      ended.push({ deckId, sourceSeconds: position.sourceSeconds }),
+    )
+    await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    await port.play('A')
+    context.sources.at(-1)?.onended?.()
+    expect(ended).toEqual([{ deckId: 'A', sourceSeconds: 30 }])
   })
 
   it('panic pauses both decks and reports their positions', async () => {

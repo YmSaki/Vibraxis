@@ -71,6 +71,10 @@ export function createRuntime(options: CreateRuntimeOptions = {}): VibraxisRunti
     }
   })
 
+  const detachEnded = audio.onTrackEnded?.((deckId, position) => {
+    transport.broadcast(dispatcher.deckEnded(deckId, position))
+  })
+
   const clientInfo = options.client ?? { name: 'vibraxis-frontend', version: '0.1.0' }
   return {
     store,
@@ -81,6 +85,7 @@ export function createRuntime(options: CreateRuntimeOptions = {}): VibraxisRunti
     createAgentClient: () =>
       new VdapClient(transport.agentPort, { role: 'agent', client: clientInfo }),
     dispose: () => {
+      detachEnded?.()
       unsubscribe()
       transport.close()
     },

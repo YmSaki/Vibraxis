@@ -135,6 +135,29 @@ export class CommandDispatcher {
     return this.subscriptions.has(connectionId)
   }
 
+  /**
+   * Records a natural track end reported by the audio layer and returns the
+   * deck.ended event for the transport to broadcast.
+   */
+  deckEnded(deckId: DeckId, position: { sourceSeconds: number; atRuntimeTime: number }) {
+    const snapshot = this.store.update((draft) => {
+      const deck = draft.decks[deckId]
+      deck.transport.phase = deck.binding ? 'ended' : 'empty'
+      deck.playback.position = position
+      deck.playback.headVelocity = 0
+      deck.playback.direction = 'stopped'
+    })
+    return {
+      vdap: VDAP_VERSION,
+      kind: 'event',
+      event: 'deck.ended',
+      revision: snapshot.revision,
+      runtimeTime: snapshot.runtimeTime,
+      deckId,
+      position,
+    } as const
+  }
+
   handle = async (
     request: RuntimeRequestEnvelope,
     context: RuntimeRequestContext,

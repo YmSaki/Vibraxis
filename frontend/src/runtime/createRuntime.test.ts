@@ -79,6 +79,15 @@ class FakeAudioPort implements RuntimeAudioPort {
       B: { sourceSeconds: 0, atRuntimeTime: 0 },
     }
   }
+
+  endedListener: ((deckId: DeckId, position: PositionPair) => void) | null = null
+
+  onTrackEnded(listener: (deckId: DeckId, position: PositionPair) => void): () => void {
+    this.endedListener = listener
+    return () => {
+      this.endedListener = null
+    }
+  }
 }
 
 function testRuntime() {
@@ -127,6 +136,33 @@ describe('createRuntime golden path', () => {
       expect(after.decks.A.transport.phase).toBe('ready')
       expect(after.decks.A.playback.headVelocity).toBe(0)
       expect(after.decks.A.playback.direction).toBe('stopped')
+    } finally {
+      ui.close()
+      runtime.dispose()
+    }
+  })
+
+  it('broadcasts deck.ended and marks the deck ended when the audio layer reports a natural end', async () => {
+    const { audio, runtime } = testRuntime()
+    const ui = runtime.createUiClient()
+    try {
+      await ui.hello()
+      const events: string[] = []
+      ui.onEvent((event) => events.push(event.event))
+      await (await ui.mutate('deck.load', {
+        deckId: 'A',
+        source: { kind: 'catalog', trackId: 'track-1' },
+      })).terminal
+      await (await ui.mutate('deck.play', { deckId: 'A' })).terminal
+
+      audio.endedListener?.('A', { sourceSeconds: 120, atRuntimeTime: 1 })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(events).toContain('deck.ended')
+      const state = await ui.query('state.get', {})
+      expect(state.decks.A.transport.phase).toBe('ended')
+      expect(state.decks.A.playback.position.sourceSeconds).toBe(120)
+      expect(state.decks.A.playback.headVelocity).toBe(0)
     } finally {
       ui.close()
       runtime.dispose()
