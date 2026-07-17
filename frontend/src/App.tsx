@@ -131,7 +131,7 @@ export default function App() {
       return
     }
     engine.pause(id)
-    engine.seek(id, cue.timeSeconds)
+    engine.seek(id, cue.sourceSeconds)
   }
 
   const triggerPerformancePad = (id: DeckId, slot: number, seconds: number) => {

@@ -66,6 +66,8 @@ analysis
 schema v1は高度情報を持たないため変換しません。schema番号が異なるキャッシュは自動で
 無効化され、音源から再生成されます。書込前、cache採用時、catalog読込時に時系列・
 区間被覆・能力状態を意味検証し、一時ファイルから原子的に置換します。
+解析JSONまたはcatalogを再生成した後は、リポジトリルートで`npm run test:contracts`を
+実行し、Python出力が正本`analysis.schema.json`にも適合することを必ず確認してください。
 
 ## catalog-source.json
 

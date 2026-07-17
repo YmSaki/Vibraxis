@@ -34,4 +34,30 @@ describe('catalog client', () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  it('normalizes catalog pad timeSeconds into the shared sourceSeconds field', async () => {
+    const originalFetch = globalThis.fetch
+    const wireTrack = {
+      ...track,
+      performancePads: [{
+        slot: 1,
+        type: 'hotCue',
+        label: 'INTRO',
+        timeSeconds: 1.25,
+        beatIndex: 0,
+        barIndex: 0,
+        beatInBar: 1,
+        source: 'auto',
+        locked: false,
+      }],
+    }
+    globalThis.fetch = async () => new Response(JSON.stringify({ catalogVersion: 1, tracks: [wireTrack] }))
+    try {
+      const [loaded] = await fetchCatalog()
+      expect(loaded.performancePads[0].sourceSeconds).toBe(1.25)
+      expect(loaded.performancePads[0]).not.toHaveProperty('timeSeconds')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })

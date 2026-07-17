@@ -1,4 +1,5 @@
 import type { AnalysisCapabilities } from "../analysis/index.js";
+import type { DjDecision, DjIntent } from "../dj/index.js";
 import type {
   DeckLoadRequest,
   MixerP0When,
@@ -7,6 +8,40 @@ import type {
 
 type Assert<T extends true> = T;
 type AssertFalse<T extends false> = T;
+type Same<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false;
+
+type ExpectedDjDecision = {
+  nextTrackId: string;
+  targetDeckId: "A" | "B";
+  tempoSync: "none" | "tempo";
+  startAt: "nextBar";
+  crossfadeBars: number;
+  confidence: number;
+  reasons: string[];
+};
+
+type ExpectedDjIntent = {
+  energyDirection: "decrease" | "maintain" | "increase";
+  targetEnergy: number | null;
+  preferredGenres: string[];
+  avoidedGenres: string[];
+  preferredMoods: string[];
+  avoidedMoods: string[];
+  tempoDirection: "slower" | "similar" | "faster" | "any";
+  harmonicPriority: "strict" | "compatible" | "ignore";
+  transitionUrgency: "quick" | "normal" | "gradual";
+  requestedTrackId: string | null;
+  excludedTrackIds: string[];
+  rationale: string;
+  confidence: number;
+};
+
+type _DjDecisionContractIsPinned = Assert<Same<DjDecision, ExpectedDjDecision>>;
+type _DjIntentContractIsPinned = Assert<Same<DjIntent, ExpectedDjIntent>>;
 
 type _SecondsRampMayOmitReference = Assert<
   { duration: { seconds: 4 }; to: 1; curve: "equalPower" } extends RampCrossfaderParams

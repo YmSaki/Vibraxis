@@ -158,13 +158,13 @@ export function Deck({
                 type="button"
                 className={selectedCueSlot === slot ? 'is-selected' : ''}
                 disabled={!pad || loading}
-                onClick={() => pad && onPerformancePad(slot, pad.timeSeconds)}
-                title={pad ? `${pad.label} · ${formatTime(pad.timeSeconds)} · bar ${pad.barIndex + 1}` : `Cue slot ${slot} is empty`}
+                onClick={() => pad && onPerformancePad(slot, pad.sourceSeconds)}
+                title={pad ? `${pad.label} · ${formatTime(pad.sourceSeconds)} · bar ${(pad.barIndex ?? -1) + 1}` : `Cue slot ${slot} is empty`}
                 key={slot}
               >
                 <span>{slot}</span>
                 <strong>{pad?.label ?? 'EMPTY'}</strong>
-                <small>{pad ? formatTime(pad.timeSeconds) : '--:--'}</small>
+                <small>{pad ? formatTime(pad.sourceSeconds) : '--:--'}</small>
               </button>
             )
           })}

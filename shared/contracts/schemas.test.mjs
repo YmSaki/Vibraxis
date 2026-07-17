@@ -91,6 +91,7 @@ test("DjIntent schema rejects unsafe or malformed output", () => {
     { ...validIntent, confidence: 1.1 },
     { ...validIntent, url: "https://example.invalid/audio.wav" },
     { ...validIntent, rationale: "" },
+    (({ confidence: _missing, ...rest }) => rest)(validIntent),
   ]) {
     assert.equal(validateIntent(invalid), false);
   }
@@ -110,6 +111,7 @@ test("DjDecision rejects low-level commands and unsupported transitions", () => 
     { ...validDecision, tempoSync: "tempoPhase" },
     { ...validDecision, startAt: "immediate" },
     { ...validDecision, crossfadeBars: 0 },
+    (({ reasons: _missing, ...rest }) => rest)(validDecision),
   ]) {
     assert.equal(validateDecision(invalid), false);
   }

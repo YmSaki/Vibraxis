@@ -1,24 +1,16 @@
-export type SectionSummary = {
-  label: string
-  startSeconds: number
-  endSeconds: number
-  startBeat: number
-  endBeat: number
-  startBar: number
-  endBar: number
-}
+import type { AnalysisSection, TrackAnalysis } from '@vibraxis/shared/analysis'
+import type { PerformancePad } from '@vibraxis/shared/vdap'
 
-export type PerformancePad = {
-  slot: number
-  type: 'hotCue'
-  label: string
-  timeSeconds: number
-  beatIndex: number
-  barIndex: number
-  beatInBar: number
-  source: 'auto' | 'user'
-  locked: boolean
-}
+export type SectionSummary = Pick<
+  AnalysisSection,
+  | 'label'
+  | 'startSeconds'
+  | 'endSeconds'
+  | 'startBeat'
+  | 'endBeat'
+  | 'startBar'
+  | 'endBar'
+>
 
 export type CatalogTrack = {
   trackId: string
@@ -27,11 +19,11 @@ export type CatalogTrack = {
   file: string
   genre: string
   mood: string[]
-  bpm: number
-  key: string
-  scale: 'major' | 'minor'
-  camelot: string
-  energy: number
+  bpm: TrackAnalysis['tempo']['bpm']
+  key: TrackAnalysis['tonal']['key']
+  scale: TrackAnalysis['tonal']['scale']
+  camelot: TrackAnalysis['tonal']['camelot']
+  energy: TrackAnalysis['features']['energy']
   sectionSummary: SectionSummary[]
   performancePads: PerformancePad[]
   degreeFingerprint: string[]
@@ -41,7 +33,15 @@ export type CatalogTrack = {
 
 type CatalogResponse = {
   catalogVersion: number
-  tracks: CatalogTrack[]
+  tracks: CatalogTrackWire[]
+}
+
+type CatalogPadWire = Omit<PerformancePad, 'sourceSeconds'> & {
+  timeSeconds: number
+}
+
+type CatalogTrackWire = Omit<CatalogTrack, 'performancePads'> & {
+  performancePads: CatalogPadWire[]
 }
 
 export async function fetchCatalog(signal?: AbortSignal): Promise<CatalogTrack[]> {
@@ -49,7 +49,13 @@ export async function fetchCatalog(signal?: AbortSignal): Promise<CatalogTrack[]
   if (!response.ok) throw new Error(`楽曲カタログを取得できませんでした (${response.status})`)
   const data = await response.json() as CatalogResponse
   if (!Array.isArray(data.tracks)) throw new Error('楽曲カタログの形式が不正です。')
-  return data.tracks
+  return data.tracks.map((track) => ({
+    ...track,
+    performancePads: track.performancePads.map(({ timeSeconds, ...pad }) => ({
+      ...pad,
+      sourceSeconds: timeSeconds,
+    })),
+  }))
 }
 
 export function trackAudioUrl(track: CatalogTrack): string {
