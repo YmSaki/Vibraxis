@@ -5,6 +5,8 @@
  * operations.
  */
 
+export * from "./selection";
+
 export type DeckId = "A" | "B";
 
 export type EnergyDirection = "decrease" | "maintain" | "increase";

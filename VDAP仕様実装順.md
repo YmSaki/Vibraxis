@@ -108,7 +108,7 @@ sequenceDiagram
 - [x] 順序2: 正準Runtime StoreとMessagePort縦切り
 - [x] 順序3: 透明な2デッキ音声基盤（staged load・/api/analysis・解析binding・deck.ended済み。音声経路はGAIN → 3-band EQ → crossfader → MASTER → destinationで、自動リミッターや音量補正を挟まない）
 - [ ] 順序4: 最小Beat Transition（**実装・自動テスト完了、実音源E2E待ち**）。`transition.start`がbindingを固定してnextBarを1回だけ解決し、target playとequal-power rampを同一AudioContext時刻へ原子的に事前予約する。開始・終了はsilent marker sourceのAudioContextイベントで確定するため、context suspend中は完了しない。tempo範囲外拒否、binding変更・user override取消、rollback真偽、開始時binding保護は自動テスト済み。残件は検証済み音源2曲での±10ms実測と3回連続遷移E2Eのみ
-- [ ] 順序5: 決定論的DJロジック
+- [x] 順序5: 決定論的DJロジック（純関数`selectNextTrack`が`DjSelectionResult`＝検証済み`DjDecision`＋ランク診断 or 明示no-candidateを返す。全定数は`DjScoringPolicy`と`shared/dj/DETERMINISTIC_SELECTION.md`で公開。`npm run test:dj`＝35件成功で§5.6の全自動完了条件を満たす。実音源E2Eは順序4/7側の残課題であり順序5の自動条件には含まない）
 - [ ] 順序6: GPT-5.6 Intent + Codex DJ Agent Provider
 - [ ] 順序7: UI統合・E2Eデモ・録画固定（進行中: 各Deckに中央固定playheadの3バンド拡大スクロール波形と小型全曲overviewを分離し、beat/downbeat/padオーバーレイ、4/8/16/32小節ズーム、両波形からのVDAP seekを実装済み。現在の解析品質ではSECTION/CHORDを波形へ表示しない。共有`TrackTimeline`は拍/小節頭と、取得できたsection/chord-degreeの位置参照を一元化する）
 - [ ] 順序8: P2から必要なものを選択（`deck.getGrid`クエリを実装済み: バインド解析のフルビートグリッド[beats/downbeats/bars/sections/phrases＋任意chords]をbinding単位でキャッシュし、高頻度snapshotへは複製しない。`E_DECK_EMPTY`/`E_ANALYSIS_UNAVAILABLE`を規範どおり返す）
@@ -122,7 +122,7 @@ sequenceDiagram
 | 2 | `npm run test:runtime` | MessagePort、state、ack/event、権限、panicが成功 |
 | 3 | `npm run test:audio` | staged load、解析binding、直接的なミキサー経路、追い越しが成功 |
 | 4 | `npm run test:transition` | nextBar、ramp、取消、失敗rollbackが成功 |
-| 5 | `npm run test:dj` | scoringとhistoryのunit testが成功 |
+| 5 | `npm run test:dj` | scoringとhistoryのunit testが成功（実装済み、35件成功） |
 | 6 | `npm run test:agent` | GPT-5.6/Codex出力検証とfallbackのintegration testが成功 |
 | 7 | `npm run check && npm run demo:smoke` | 全検証とゴールデン経路smokeが成功 |
 
@@ -386,14 +386,18 @@ Web Audioのautomationを使い、細かな`setCrossfader`予約の連打で近�
 - 同じ曲・直近履歴の除外
 - セクション/CUEの利用可否
 
-決定論的ロジックが返すものは`DjDecision`だけとし、再生は`TransitionExecutor`が行う。
+決定論的ロジックの実体は純関数 `selectNextTrack(context, intent, policy?)`（`shared/dj/selection.ts`）である。再生は`TransitionExecutor`が行う。
 
-完了条件:
+**契約の解決（DjDecisionと候補0件の緊張）**: `DjDecision`は`nextTrackId`必須で全フィールド非オプションのため「妥当な次曲が無い」状態を表現できない。候補0件で`DjDecision`を捏造することはAGENTS §0.3に反する。よって決定論ロジックは`DjSelectionResult`を返す。これは `{status:"selected", decision:DjDecision, ranking}` か `{status:"noCandidate", reasons, ranking}` のいずれかである。`DjDecision`型自体は不変で、順序6のAdapterは`selected`の`decision`をそのまま消費する。`ranking`（`DjCandidateScore[]`）が選定スコアと除外理由の両方を機械可読に公開する。挙動に影響する全定数（重み・閾値・Camelot規則・タイブレーク・クロスフェード小節選択・confidence算出・除外/no-candidateコード）は`DjScoringPolicy`／エクスポート済みconst配列として公開し、`shared/dj/DETERMINISTIC_SELECTION.md`に人間可読仕様として固定する。テンポ同期rateは供給BPMから厳密算出し可動域外なら理由付きで除外（クランプ禁止）、クロスフェード小節は`allowedCrossfadeBars`からのみ選び空なら失敗する。
 
-- 同じ入力には同じ順位を返す純関数である。
-- 理由を機械可読な項目として返す。
-- 不適切な候補を除外し、候補0件を明示的に扱う。
-- VitestでBPM、Camelot、energy、履歴除外を検証する。
+完了条件（★=自動検証未達/手動待ち）:
+
+- 同じ入力には同じ順位を返す純関数である。（達成: `frontend/src/dj/selection.test.ts` のdeterminism/purity/入力順非依存テスト）
+- 理由を機械可読な項目として返す。（達成: `ranking`の`DjCandidateScore`＋`DjExclusion`／`DjNoCandidateReason`コード）
+- 不適切な候補を除外し、候補0件を明示的に扱う。（達成: current/recent/excluded/rate/harmonic/avoided除外と`emptyCandidateSet`/`allCandidatesExcluded`/`noAllowedCrossfadeBars`/`invalidReferenceBpm`/`requestedTrack*`）
+- VitestでBPM、Camelot、energy、履歴除外を検証する。（達成: `npm run test:dj` 35件が成功。BPM/rate境界・非有限rate・クランプ拒否・Camelot(strict/compatible/ignore)・energy方向/target・履歴/明示除外・requested・genre/mood・section/CUE・タイブレーク・urgency/crossfade・不正入力・候補0件を網羅）
+
+検証コマンド: `npm run test:dj`（新設）。`npm run check`にも全Vitestが含まれ通過する。
 
 ### 5.7 順序6 — GPT-5.6 Intent + Codex DJ Agent Provider [P1]
 

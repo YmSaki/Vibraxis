@@ -1,5 +1,15 @@
 import type { AnalysisCapabilities } from "../analysis/index.js";
-import type { DjDecision, DjIntent } from "../dj/index.js";
+import type {
+  DjDecision,
+  DjExclusionCode,
+  DjIntent,
+  DjNoCandidateCode,
+  DjSelectionResult,
+} from "../dj/index.js";
+import {
+  DJ_EXCLUSION_CODES,
+  DJ_NO_CANDIDATE_CODES,
+} from "../dj/index.js";
 import type {
   DeckEqState,
   DeckLoadRequest,
@@ -45,6 +55,32 @@ type ExpectedDjIntent = {
 
 type _DjDecisionContractIsPinned = Assert<Same<DjDecision, ExpectedDjDecision>>;
 type _DjIntentContractIsPinned = Assert<Same<DjIntent, ExpectedDjIntent>>;
+
+// The deterministic order-5 result is a discriminated union: a validated
+// DjDecision OR an explicit no-candidate outcome. Both variants carry ranked
+// diagnostics, so a caller can always inspect inclusion scores and exclusions.
+type _SelectionStatusIsClosed = Assert<
+  Same<DjSelectionResult["status"], "selected" | "noCandidate">
+>;
+type _SelectedVariantCarriesDecision = Assert<
+  Extract<DjSelectionResult, { status: "selected" }>["decision"] extends DjDecision
+    ? true
+    : false
+>;
+type _NoCandidateVariantHasNoDecision = AssertFalse<
+  "decision" extends keyof Extract<DjSelectionResult, { status: "noCandidate" }>
+    ? true
+    : false
+>;
+
+// The machine-readable code enumerations are the runtime source of truth for the
+// exported string-literal types.
+type _ExclusionCodesMatchConst = Assert<
+  Same<DjExclusionCode, (typeof DJ_EXCLUSION_CODES)[number]>
+>;
+type _NoCandidateCodesMatchConst = Assert<
+  Same<DjNoCandidateCode, (typeof DJ_NO_CANDIDATE_CODES)[number]>
+>;
 
 type _SecondsRampMayOmitReference = Assert<
   { duration: { seconds: 4 }; to: 1; curve: "equalPower" } extends RampCrossfaderParams
