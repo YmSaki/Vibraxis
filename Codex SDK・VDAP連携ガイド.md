@@ -25,7 +25,8 @@ Vibraxisでは、Codexをリアルタイム音声エンジンとして使わな�
 - Codexの出力を、VDAPコマンド、URL、ファイルパス、シェルコマンドとして直接実行しない。
 - Codexから `DeckEngine`、`AudioContext`、React stateを直接操作しない。
 - AIの応答待ちを再生・拍同期・クロスフェードのリアルタイム処理に入れない。
-- タイムアウト、認証切れ、不正な出力では `DeterministicProvider` にフォールバックする。
+- タイムアウト、認証切れ、不正な出力は、**既定では拒否（reject）**する。`DeterministicProvider` への切り替えは、呼び出し側がリクエストで明示的にオプトインし、必要な入力（有効な `DjIntent` 等）をすべて供給した場合に限る。フォールバックを暗黙に既定挙動としない（AGENTS.md §0）。
+- フォールバック結果を Codex／GPT-5.6 の結果として表示しない。応答には要求ルート、実際に使ったprovider段、決定論的フォールバックの使用有無、機械可読な理由を必ず含める。
 - VDAP Runtimeを状態と時刻の唯一の権威とする。
 
 ## 用語を混同しない
@@ -209,7 +210,7 @@ Codexへ渡さないもの:
 6. decisionにSchema外フィールド、URL、コマンド、パスが混入していない。
 7. 判断開始後に現在曲・binding・active deckが変わっていない。
 
-検証失敗時に、AIの値を都合よくクランプして実行しない。判断を破棄し、最新状態で再判断するか `DeterministicProvider` へ切り替える。
+検証失敗時に、AIの値を都合よくクランプ・丸め・置換して実行しない。無効な出力はそのまま拒否し、型付きの理由を返す。既定挙動は拒否である。`DeterministicProvider` による選曲は、リクエストが事前にフォールバックへオプトインし、決定論的選曲に必要な入力（有効な `DjIntent`）を供給している場合に限り実行してよい。その場合も結果は決定論的provider由来として表示し、Codex結果とは区別する。
 
 ## VDAPとの接続規則
 
@@ -274,11 +275,11 @@ Codexの応答時間は保証されない。したがって、遷移直前では
 
 1. 次の遷移期限より十分早く候補を絞る。
 2. Codex呼び出しにアプリ側deadlineを設ける。
-3. deadlineまでに有効な `DjDecision` がなければ決定論的判断を採用する。
-4. 遅れて返ったCodex結果は実行せず破棄する。
+3. deadlineまでに有効な `DjDecision` が得られなければ、**既定では拒否**する。リクエストがフォールバックへオプトインしている場合に限り、供給済みの `DjIntent` を用いた決定論的判断へ切り替える。切り替えた結果は決定論的provider由来として明示する。
+4. 遅れて返ったCodex結果は実行せず破棄する（世代IDで無効化）。子プロセスを「取り消した」とは主張しない。
 5. VDAP Runtimeの再生クロックをモデル応答待ちで停止しない。
 
-SDK/APIのバージョンによっては実行中turnの取消方法が異なる。Promise側のタイムアウトだけで子プロセス処理が止まると仮定せず、導入時に使用バージョンの型と公式READMEを確認する。取消不能なら、同時実行数を制限し、遅延結果を世代IDで無効化する。
+`@openai/codex-sdk@0.144.6` の `TurnOptions.signal`（`AbortSignal`）とOpenAI SDKのリクエストoptionはキャンセル用signalを受け付ける。導入時にこの信号を渡してよいが、signalの中断だけで子プロセスやHTTPが必ず停止すると仮定しない。deadline経過後の結果は、signalの成否と独立に世代IDで無効化し、決して適用しない。取消可否は使用バージョンの型と公式READMEで確認し、未確認の取消を成功として扱わない。
 
 ## 権限と実行環境
 
@@ -296,21 +297,25 @@ Codex SDKはコーディングエージェントを起動するため、プロ�
 
 ## 失敗時の処理表
 
-| 状況 | 処理 |
-|---|---|
-| 未ログイン・認証失効 | `codex login status` / `codex login` を案内し、`DeterministicProvider` を使う |
-| タイムアウト | Codex結果を無効化し、決定論的判断を使う |
-| JSON parse失敗 | 出力を破棄し、決定論的判断を使う |
-| Schema不一致 | 出力を破棄し、エラー理由だけ記録する |
-| 候補外track ID | 実行せず、セキュリティ/意味検証エラーとして記録する |
-| 状態revisionが古い | 最新snapshotから判断をやり直す |
-| binding不一致 | 計画を破棄し、ユーザーの現操作を優先する |
-| beat capability不足 | 対応する決定論的な非同期遷移へ落とすか、候補を選び直す |
-| load失敗 | 旧bindingを維持し、次候補または手動操作へ戻る |
-| user override | Agent Intentを取り消し、操作を取り返さない |
-| SDK/CLI異常終了 | Providerをunavailableにし、Runtimeは継続する |
+既定の失敗挙動はすべて**拒否（reject）**である。「決定論的判断へ切り替え」は、リクエストがフォールバックへオプトインし、決定論的選曲に必要な入力を供給している場合に限る。オプトインが無ければ、下記の理由を機械可読な型付きエラーとしてそのまま返す。
 
-ログにはprovider名、所要時間、thread/turnの相関ID、結果区分、fallback理由を残してよい。プロンプト全文、ユーザーの認証情報、`auth.json`、環境変数、音源パスは残さない。
+| 状況 | 既定（オプトイン無し） | オプトイン有り |
+|---|---|---|
+| 未ログイン・認証失効 | `codex_unavailable` として拒否し、`codex login status` / `codex login` を案内 | 供給済み `DjIntent` で決定論的選曲（結果は決定論的provider由来と明示） |
+| タイムアウト | `codex_timeout` として拒否し、遅延結果を世代IDで無効化 | 同上 |
+| JSON parse失敗 | `decision_not_json` として拒否 | 同上 |
+| Schema不一致 | `decision_schema_invalid` として拒否（値をクランプ・補正しない） | 同上 |
+| 候補外track ID・意味検証違反 | `decision_semantic_invalid` として拒否（実行しない） | 同上 |
+| GPT-5.6意図の生成失敗 | `gpt_*` として拒否。意図を捏造しない | 呼び出し側が事前に供給した**フォールバック用 `DjIntent`** がある場合のみ決定論的選曲。無ければ `fallback_intent_missing` |
+| 状態revisionが古い | 最新snapshotから判断をやり直す（AIの古い判断を再送しない） | — |
+| binding不一致 | 計画を破棄し、ユーザーの現操作を優先する | — |
+| load失敗 | 旧bindingを維持し、次候補または手動操作へ戻る | — |
+| user override | Agent Intentを取り消し、操作を取り返さない | — |
+| SDK/CLI異常終了 | Providerをunavailableにし、Runtimeは継続する | — |
+
+いずれの場合も、決定論的選曲自体が候補なし（`noCandidate`）なら決定を捏造せず `no_candidate` として拒否する。
+
+ログにはprovider名、所要時間、thread/turnの相関ID、結果区分、フォールバック使用有無と理由を残してよい。プロンプト全文、ユーザーの認証情報、`auth.json`、環境変数、音源パスは残さない。
 
 ## Providerの推奨境界
 
@@ -328,7 +333,10 @@ export class CodexLocalProvider implements DjAgentProvider {
 }
 
 export class DeterministicProvider implements DjAgentProvider {
-  // 認証、timeout、無効出力時にも必ず利用可能にする。
+  // Order 5 の selectNextTrack をそのまま包む。noCandidate 時に決定を捏造しない。
+  // 認証・timeout・無効出力時のフォールバックとしては、リクエストが明示的に
+  // オプトインした場合に限り呼び出す（既定は拒否）。結果は決定論的provider由来
+  // として区別し、Codex/GPT-5.6 の結果として表示しない。
 }
 
 export class OpenAiApiProvider implements DjAgentProvider {
@@ -337,6 +345,8 @@ export class OpenAiApiProvider implements DjAgentProvider {
 ```
 
 ProviderはVDAP clientを保持しない。判断の生成と、判断の実行を分離することで、AIを無効化してもRuntime/UIをそのまま動かせる。
+
+個々のProviderは判断のみを返し、ルーティング・検証・フォールバック統治はオーケストレーター層が担う。オーケストレーターの応答は、要求ルート、実際に走ったprovider段（`gpt56-intent` / `codex-decision` / `deterministic-selection`）、決定論的フォールバックの使用有無、意図の出所（`caller` / `gpt-5.6` / `caller-fallback`）、機械可読な失敗理由を保持する。GPT-5.6 と Codex は別個の観測可能な段として保つ。参考実装は `backend/src/agent/`（`orchestrator.ts` と `types.ts`）にある。
 
 ## 作業者向けチェックリスト
 
@@ -353,7 +363,10 @@ ProviderはVDAP clientを保持しない。判断の生成と、判断の実行�
 - [ ] ackとterminal eventを区別している。
 - [ ] `expectedRevision` と `expectedBindingId` の意味を混同していない。
 - [ ] user override、binding変更、load失敗を安全に処理する。
-- [ ] タイムアウトと `DeterministicProvider` fallbackのテストがある。
+- [ ] 既定の失敗挙動が拒否であり、フォールバックが暗黙に発生しないテストがある。
+- [ ] オプトイン時のみ決定論的フォールバックが動き、必要な入力（GPT失敗時はフォールバック用 `DjIntent`）が無ければ拒否するテストがある。
+- [ ] 応答が要求ルート・provider段・フォールバック使用有無・機械可読な理由を含み、フォールバック結果をCodex/GPTとして表示しないことを検証している。
+- [ ] タイムアウトと遅延結果の無効化のテストがあり、ハングしない。
 - [ ] AI停止中でも手動DJとVDAP Runtimeが動く。
 - [ ] 遅れて返った古い判断を世代IDで破棄できる。
 

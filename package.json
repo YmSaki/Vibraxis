@@ -10,8 +10,9 @@
     "test:contracts": "node --test shared/contracts/schemas.test.mjs",
     "test:transition": "npm --workspace frontend run test -- src/runtime/transition src/audio/DeckEngine.test.ts src/runtime/DeckEngineAudioPort.test.ts",
     "test:dj": "npm --workspace frontend run test -- src/dj/selection.test.ts",
+    "test:agent": "npm --workspace backend run test",
     "check:protocol-docs": "node scripts/check-protocol-docs.mjs",
-    "check": "npm run check:protocol-docs && npm run test:contracts && npm --workspace shared run check && npm --workspace frontend run check"
+    "check": "npm run check:protocol-docs && npm run test:contracts && npm --workspace shared run check && npm --workspace backend run check && npm --workspace frontend run check"
   },
   "devDependencies": {
     "ajv": "^8.17.1"

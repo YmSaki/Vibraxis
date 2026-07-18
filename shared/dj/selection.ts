@@ -38,7 +38,7 @@ import type {
   TempoSyncMode,
   TransitionStart,
   TransitionUrgency,
-} from "./index.js";
+} from "./index.ts";
 
 /* ------------------------------------------------------------------ *
  * Machine-readable codes

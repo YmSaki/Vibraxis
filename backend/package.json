@@ -1,0 +1,26 @@
+{
+  "name": "@vibraxis/backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./agent": "./src/agent/index.ts"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "vitest run",
+    "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "check": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "0.144.6",
+    "openai": "6.48.0",
+    "@vibraxis/shared": "0.1.0",
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

@@ -5,7 +5,7 @@
  * operations.
  */
 
-export * from "./selection";
+export * from "./selection.ts";
 
 export type DeckId = "A" | "B";
 

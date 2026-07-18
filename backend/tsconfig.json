@@ -1,15 +1,16 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
     "allowArbitraryExtensions": true,
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node"]
   },
-  "include": ["analysis/**/*.ts", "vdap/**/*.ts", "dj/**/*.ts", "contracts/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

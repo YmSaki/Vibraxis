@@ -2,7 +2,7 @@ import analysisSchema from "../../analyze-tool/analysis.schema.json" with {
   type: "json",
 };
 
-export * from "./timeline";
+export * from "./timeline.ts";
 
 /**
  * The runtime schema remains owned by analyze-tool. This export intentionally

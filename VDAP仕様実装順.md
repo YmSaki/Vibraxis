@@ -438,8 +438,8 @@ interface DjAgentProvider {
 - **GPT-5.6は提出必須のP1機能**。`Gpt56IntentProvider`がユーザーの自然言語からenergy方向、mood/genre希望、遷移の緊急度、説明用要点を`DjIntent`としてStructured Outputする。
 - `DjIntent`は候補スコアの重みまたは除外条件へ必ず使い、単なる説明文生成にしない。
 - **CodexLocalProvider**は絞り込まれた候補、現在曲、履歴、`DjIntent`を読み、次曲と遷移案を`DjDecision`として返す。事前の`codex login`を使うローカル単一ユーザー構成とする。
-- `DeterministicProvider`は安全な候補順位と両AI機能のfallbackを担う。
-- ローカル開発は片方の認証がなくてもfallbackで動かせるが、提出動画ではGPT-5.6とCodexの両方が実経路で動くテイクを使用する。
+- `DeterministicProvider`は安全な候補順位を担う。AI失敗時のフォールバックは**リクエストが明示的にオプトインした場合に限る**（既定は拒否）。GPT-5.6の意図生成失敗時は意図を捏造せず、呼び出し側が事前にフォールバック用`DjIntent`を供給した場合にのみ決定論的選曲へ切り替える。フォールバック結果はGPT-5.6/Codexの結果として表示しない（AGENTS.md §0）。
+- ローカル開発はオプトイン時のフォールバックで片方の認証が無くても動かせるが、提出動画ではGPT-5.6とCodexの両方が実経路で動くテイクを使用する。
 - APIキーなしのCodex Local + deterministic構成は開発・ローカル利用モードとして残すが、GPT-5.6必須のハッカソン提出完了とは扱わない。
 - 動画、README、提出文では両者の異なる責務と、実際に判断へ与えた影響を明示する。
 
@@ -448,24 +448,31 @@ interface DjAgentProvider {
 1. `DeterministicProvider`
 2. `Gpt56IntentProvider`
 3. `CodexLocalProvider`
-4. timeout・認証失効時のfallback
+4. timeout・認証失効・不正出力時の挙動（既定は拒否、オプトイン時のみ決定論的フォールバック）
 
 安全規則:
 
 - Codexの作業ディレクトリをVibraxisへ限定する。
 - 認証情報をアプリへコピー・表示・保存しない。
-- GPT-5.6とCodexの出力をそれぞれSchemaで再検証する。
+- GPT-5.6とCodexの出力をそれぞれSchemaで再検証し、意味検証も行う。不正出力はクランプ・補正せずそのまま拒否する。
 - Agentに音源URL、任意VDAPコマンド、シェル操作を出力させない。
-- 片方のtimeout/認証失効時は`DeterministicProvider`へ戻り、Runtimeを待たせない。
+- 片方のtimeout/認証失効時も、Runtimeを応答待ちで止めない。既定挙動は拒否とし、`DeterministicProvider`への切り替えはリクエストがオプトインし必要な入力を供給した場合に限る。遅延結果は世代IDで無効化し適用しない。
 
 完了条件:
 
 - APIキー設定環境でGPT-5.6がSchema適合`DjIntent`を返し、異なるユーザー意図で候補順位または遷移方針が変わる。
 - ログイン済み環境でCodexがSchema適合`DjDecision`を返す。
-- 未ログイン・API失敗・timeout・不正出力で決定論的providerへ戻る。
-- UIに「GPT-5.6 Intent」「Codex Decision」「Fallback」を区別して表示する。
+- 未ログイン・API失敗・timeout・不正出力は既定で型付き拒否となり、オプトイン時のみ決定論的providerへ切り替わる。GPT意図失敗時はフォールバック用`DjIntent`供給時のみ切り替わる。応答が要求ルート・provider段・フォールバック使用有無・機械可読な理由を含む。
+- UIに「GPT-5.6 Intent」「Codex Decision」「Fallback（決定論的provider由来と明示）」を区別して表示する。フォールバック結果をCodex/GPTの結果として表示しない。
 - 音声スレッド/RuntimeがAgent応答待ちで停止しない。
 - `提出計画.md`、README、動画台本がGPT-5.6とCodexのmeaningful useを正確に説明する。
+
+実装状況（2026-07-19時点・順序6バックエンド／provider層）:
+
+- 実装済み・テスト済み（mocked、ネットワーク非依存）: `backend/` パッケージに `DeterministicProvider` / `Gpt56IntentProvider`（OpenAI SDK構造化出力、model id `gpt-5.6` を保存）/ `CodexLocalProvider`（`@openai/codex-sdk@0.144.6`、read-only sandbox・network無効・`approvalPolicy:"never"`・`workingDirectory`=リポジトリルート）を実装。`POST /api/agent/decide` と `GET /api/agent/capability`、意味検証、総request deadline・遅延結果の世代無効化、オプトイン限定フォールバック、loopback限定HTTP公開の統治を含む。`npm run test:agent`（75件）・`npm run check`・`git diff --check` 通過。
+- 実機確認済み: ChatGPTログイン済み環境で `RUN_LIVE_CODEX=1 npm --workspace backend run test:smoke` を実行し、Codex SDK実経路がSchema・意味検証を通る決定を返すことを確認した（2026-07-19、1件pass）。
+- 未検証: GPT-5.6 の実API呼び出しはAPIキー未設定のため未実行。live smokeは `RUN_LIVE_GPT=1`＋`OPENAI_API_KEY` でオプトイン実行できる。model id `gpt-5.6` がAPIで受理されるかも未確認。
+- 未実施: UIでの「GPT-5.6 Intent／Codex Decision／Fallback」区別表示（順序7の範囲）。したがって**順序6は完了扱いにしない**。上記の実API経路とUI区別が実機で確認できるまで未完とする。
 
 ### 5.8 順序7 — UI統合・E2Eデモ・録画固定 [P1]
 
