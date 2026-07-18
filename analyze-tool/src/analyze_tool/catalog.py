@@ -73,7 +73,11 @@ def build_catalog(
                 }
                 for section in analysis["structure"]["sections"]
             ],
-            "performancePads": _performance_pads(analysis["structure"]["sections"]),
+            "performancePads": _performance_pads(
+                analysis["structure"]["sections"],
+                analysis["tempo"]["beatsSeconds"],
+                analysis["tempo"]["barsSeconds"],
+            ),
             "degreeFingerprint": fingerprint,
             "capabilities": {name: info["status"] for name, info in analysis["capabilities"].items()},
             "licenseStatus": "unverified" if str(metadata["license"]).lower().startswith("unverified") else "verified",
@@ -86,7 +90,11 @@ def build_catalog(
     return catalog
 
 
-def _performance_pads(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _performance_pads(
+    sections: list[dict[str, Any]],
+    beats_seconds: list[float],
+    bars_seconds: list[float],
+) -> list[dict[str, Any]]:
     if not sections:
         return []
 
@@ -111,17 +119,44 @@ def _performance_pads(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
         add(section)
 
     selected.sort(key=lambda section: section["startSeconds"])
-    return [
-        {
-            "slot": index,
+
+    def closest_index(values: list[float], target: float) -> int | None:
+        if not values:
+            return None
+        return min(range(len(values)), key=lambda index: abs(values[index] - target))
+
+    pads: list[dict[str, Any]] = []
+    for slot, section in enumerate(selected[:8], start=1):
+        # A DJ hot cue should land on the musical grid, not merely at byte zero
+        # or at an unsnapped structure boundary. Slot 1 is the first detected
+        # downbeat; later structure cues use their nearest detected downbeat.
+        if bars_seconds:
+            bar_index = 0 if slot == 1 else closest_index(bars_seconds, section["startSeconds"])
+            assert bar_index is not None
+            time_seconds = bars_seconds[bar_index]
+            beat_index = closest_index(beats_seconds, time_seconds)
+            beat_in_bar = 1
+        elif beats_seconds:
+            beat_index = 0 if slot == 1 else closest_index(beats_seconds, section["startSeconds"])
+            assert beat_index is not None
+            time_seconds = beats_seconds[beat_index]
+            bar_index = section["startBar"]
+            beat_in_bar = section["startBeat"] % 4 + 1
+        else:
+            time_seconds = section["startSeconds"]
+            beat_index = section["startBeat"]
+            bar_index = section["startBar"]
+            beat_in_bar = section["startBeat"] % 4 + 1
+
+        pads.append({
+            "slot": slot,
             "type": "hotCue",
-            "label": section["label"].upper(),
-            "timeSeconds": section["startSeconds"],
-            "beatIndex": section["startBeat"],
-            "barIndex": section["startBar"],
-            "beatInBar": section["startBeat"] % 4 + 1,
+            "label": "FIRST BEAT" if slot == 1 else section["label"].upper(),
+            "timeSeconds": time_seconds,
+            "beatIndex": beat_index,
+            "barIndex": bar_index,
+            "beatInBar": beat_in_bar,
             "source": "auto",
             "locked": False,
-        }
-        for index, section in enumerate(selected[:8], start=1)
-    ]
+        })
+    return pads
