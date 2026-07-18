@@ -47,6 +47,20 @@ export function equalPowerGains(position: number): { a: number; b: number } {
   }
 }
 
+/**
+ * Manual DJ crossfader curve. The deck on the selected side remains at unity
+ * through the center while only the opposite deck is attenuated. Unlike an
+ * equal-power crossfade, moving a solo deck from center to its edge therefore
+ * does not add 3 dB.
+ */
+export function djCrossfaderGains(position: number): { a: number; b: number } {
+  const clamped = clamp(position, -1, 1)
+  return {
+    a: clamped <= 0 ? 1 : 1 - clamped,
+    b: clamped >= 0 ? 1 : 1 + clamped,
+  }
+}
+
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '00:00'
   const whole = Math.floor(seconds)

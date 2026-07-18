@@ -75,6 +75,7 @@ const SCHEDULABLE = new Set<string>([
   'deck.seek',
   'deck.selectPad',
   'deck.setGain',
+  'deck.setEq',
   'deck.setVelocity',
   'deck.sync',
   'mixer.setCrossfader',
@@ -92,6 +93,7 @@ const DECK_COMMANDS = new Set<string>([
   'deck.setPad',
   'deck.clearPad',
   'deck.setGain',
+  'deck.setEq',
   'deck.setVelocity',
   'deck.setTempoInterpretation',
   'deck.sync',
@@ -104,6 +106,7 @@ const INTENT_DOMAINS = new Set<IntentDomain>([
   'padEdit',
   'velocity',
   'gain',
+  'eq',
   'crossfader',
   'master',
   'subscription',
@@ -198,6 +201,8 @@ export class CommandDispatcher {
         return this.seek(request, context, when.value)
       case 'deck.setGain':
         return this.setGain(request, context, when.value)
+      case 'deck.setEq':
+        return this.setEq(request, context, when.value)
       case 'deck.setVelocity':
         return this.setVelocity(request, context, when.value)
       case 'mixer.setCrossfader':
@@ -519,6 +524,23 @@ export class CommandDispatcher {
     }
   }
 
+  private async setEq(request: RuntimeRequestEnvelope, context: RuntimeRequestContext, when: P0When): Promise<DispatchResult> {
+    const deck = parseDeckId(request.params)
+    if ('error' in deck) return rejected(request.requestId, deck.error)
+    if (!isRecord(request.params) || !['low', 'mid', 'high'].includes(String(request.params.band))) {
+      return rejectedError(request.requestId, 'E_INVALID_PARAMS', 'band must be low, mid, or high.')
+    }
+    const gainDb = parseNumberParam(request.params, 'gainDb', -12, 12, false)
+    if ('error' in gainDb) return rejected(request.requestId, gainDb.error)
+    const precondition = this.deckPrecondition(request, deck.value)
+    if (precondition) return rejected(request.requestId, precondition)
+    const band = request.params.band as 'low' | 'mid' | 'high'
+    const stateKey = `${band}Db` as const
+    return this.executeGeneral(request, context, 'eq', { deckId: deck.value }, when,
+      () => this.audio.setEq(deck.value, band, gainDb.value),
+      (draft) => { draft.decks[deck.value].eq[stateKey] = gainDb.value })
+  }
+
   private async setCrossfader(request: RuntimeRequestEnvelope, context: RuntimeRequestContext, when: P0When): Promise<DispatchResult> {
     const position = parseNumberParam(request.params, 'position', -1, 1, false)
     if ('error' in position) return rejected(request.requestId, position.error)
@@ -528,6 +550,7 @@ export class CommandDispatcher {
       (draft) => {
         draft.mixer.crossfader.base = position.value
         draft.mixer.crossfader.effective = position.value
+        draft.mixer.crossfader.curve = 'dj'
         draft.mixer.crossfader.automation = null
       })
   }

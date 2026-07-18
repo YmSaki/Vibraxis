@@ -3,6 +3,9 @@ import type { DeckId, DeckSnapshot } from '../audio/DeckEngine'
 import { formatTime, interpretedBpm, type TempoMultiplier } from '../audio/audioMath'
 import type { CatalogTrack } from '../catalog'
 
+export type EqBand = 'low' | 'mid' | 'high'
+export type DeckEq = Record<EqBand, number>
+
 type Props = {
   id: DeckId
   deck: DeckSnapshot
@@ -14,6 +17,9 @@ type Props = {
   onCue: () => void
   onSeek: (seconds: number) => void
   onGain: (value: number) => void
+  eq: DeckEq
+  onEq: (band: EqBand, gainDb: number) => void
+  onEqReset: () => void
   onRate: (value: number) => void
   onTempoSync: () => void
   tempoSyncDisabled: boolean
@@ -34,6 +40,9 @@ export function Deck({
   onCue,
   onSeek,
   onGain,
+  eq,
+  onEq,
+  onEqReset,
   onRate,
   onTempoSync,
   tempoSyncDisabled,
@@ -165,6 +174,38 @@ export function Deck({
               >
                 {value === 0.5 ? 'BPM ÷2' : value === 1 ? 'RESET' : 'BPM ×2'}
               </button>
+            ))}
+          </div>
+        </div>
+        <div className="deck-eq" aria-label={`Deck ${id} equalizer`}>
+          <div className="deck-eq__header">
+            <div>
+              <span>3 BAND EQ</span>
+              <small>−12 / 0 / +12 dB</small>
+            </div>
+            <button
+              type="button"
+              onClick={onEqReset}
+            >
+              EQ RESET
+            </button>
+          </div>
+          <div className="deck-eq__bands">
+            {(['low', 'mid', 'high'] as EqBand[]).map((band) => (
+              <label className="eq-band" key={band}>
+                <span>{band === 'high' ? 'HI' : band.toUpperCase()}</span>
+                <output>{eq[band] > 0 ? '+' : ''}{eq[band].toFixed(1)} dB</output>
+                <input
+                  aria-label={`Deck ${id} ${band === 'high' ? 'high' : band} EQ`}
+                  type="range"
+                  min="-12"
+                  max="12"
+                  step="0.5"
+                  value={eq[band]}
+                  onChange={(event) => onEq(band, Number(event.target.value))}
+                />
+                <span className="eq-band__scale" aria-hidden="true"><i>−12</i><b>0</b><i>+12</i></span>
+              </label>
             ))}
           </div>
         </div>

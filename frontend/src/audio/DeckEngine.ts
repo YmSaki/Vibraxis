@@ -1,6 +1,8 @@
-import { clamp, equalPowerGains, MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from './audioMath'
+import { clamp, djCrossfaderGains, equalPowerGains, MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from './audioMath'
 
 export type DeckId = 'A' | 'B'
+export type DeckEqBand = 'low' | 'mid' | 'high'
+export type CrossfaderCurve = 'dj' | 'equalPower'
 
 export type DeckSnapshot = {
   id: DeckId
@@ -32,6 +34,9 @@ type DeckGraph = {
   buffer: AudioBuffer | null
   source: AudioBufferSourceNode | null
   inputGain: GainNode
+  eqFilters: Record<DeckEqBand, BiquadFilterNode>
+  eqGainsDb: Record<DeckEqBand, number>
+  eqHeadroom: GainNode
   crossfadeGain: GainNode
   name: string | null
   gain: number
@@ -51,10 +56,12 @@ export class DeckEngine {
   private readonly context: AudioContext
   private readonly masterGain: GainNode
   private readonly limiter: DynamicsCompressorNode
+  private readonly safetyCeiling: WaveShaperNode
   private readonly decks: Record<DeckId, DeckGraph>
   private readonly listeners = new Set<Listener>()
   private readonly endedListeners = new Set<EndedListener>()
   private crossfader = 0
+  private crossfaderCurve: CrossfaderCurve = 'dj'
   private masterVolume = 0.8
   private ticker: number | null = null
   private disposed = false
@@ -72,8 +79,12 @@ export class DeckEngine {
     this.limiter.ratio.value = 20
     this.limiter.attack.value = 0.003
     this.limiter.release.value = 0.25
+    this.safetyCeiling = context.createWaveShaper()
+    this.safetyCeiling.curve = createSafetyCeilingCurve()
+    this.safetyCeiling.oversample = '4x'
     this.masterGain.connect(this.limiter)
-    this.limiter.connect(context.destination)
+    this.limiter.connect(this.safetyCeiling)
+    this.safetyCeiling.connect(context.destination)
     this.decks = {
       A: this.createDeck(),
       B: this.createDeck(),
@@ -254,9 +265,25 @@ export class DeckEngine {
     this.emit()
   }
 
-  setCrossfader(value: number): void {
+  setCrossfader(value: number, curve: CrossfaderCurve = 'dj'): void {
     this.crossfader = clamp(value, -1, 1)
+    this.crossfaderCurve = curve
     this.applyCrossfader()
+    this.emit()
+  }
+
+  setDeckEq(id: DeckId, band: DeckEqBand, gainDb: number): void {
+    const gain = clamp(gainDb, -12, 12)
+    const deck = this.decks[id]
+    const now = this.context.currentTime
+    deck.eqGainsDb[band] = gain
+    deck.eqFilters[band].gain.setTargetAtTime(gain, now, 0.01)
+    // Preserve headroom when users boost multiple overlapping bands. Positive
+    // EQ still changes the tonal balance, but cannot multiply the deck level
+    // unchecked before the master limiter.
+    const positiveBoostDb = Object.values(deck.eqGainsDb)
+      .reduce((total, value) => total + Math.max(0, value), 0)
+    deck.eqHeadroom.gain.setTargetAtTime(10 ** (-positiveBoostDb / 20), now, 0.01)
     this.emit()
   }
 
@@ -304,13 +331,34 @@ export class DeckEngine {
 
   private createDeck(): DeckGraph {
     const inputGain = this.context.createGain()
+    const lowEq = this.context.createBiquadFilter()
+    lowEq.type = 'lowshelf'
+    lowEq.frequency.value = 250
+    lowEq.gain.value = 0
+    const midEq = this.context.createBiquadFilter()
+    midEq.type = 'peaking'
+    midEq.frequency.value = 1_000
+    midEq.Q.value = 1
+    midEq.gain.value = 0
+    const highEq = this.context.createBiquadFilter()
+    highEq.type = 'highshelf'
+    highEq.frequency.value = 4_000
+    highEq.gain.value = 0
+    const eqHeadroom = this.context.createGain()
     const crossfadeGain = this.context.createGain()
-    inputGain.connect(crossfadeGain)
+    inputGain.connect(lowEq)
+    lowEq.connect(midEq)
+    midEq.connect(highEq)
+    highEq.connect(eqHeadroom)
+    eqHeadroom.connect(crossfadeGain)
     crossfadeGain.connect(this.masterGain)
     return {
       buffer: null,
       source: null,
       inputGain,
+      eqFilters: { low: lowEq, mid: midEq, high: highEq },
+      eqGainsDb: { low: 0, mid: 0, high: 0 },
+      eqHeadroom,
       crossfadeGain,
       name: null,
       gain: 1,
@@ -325,7 +373,9 @@ export class DeckEngine {
   }
 
   private applyCrossfader(): void {
-    const gains = equalPowerGains(this.crossfader)
+    const gains = this.crossfaderCurve === 'equalPower'
+      ? equalPowerGains(this.crossfader)
+      : djCrossfaderGains(this.crossfader)
     const now = this.context.currentTime
     this.decks.A.crossfadeGain.gain.setTargetAtTime(gains.a, now, 0.01)
     this.decks.B.crossfadeGain.gain.setTargetAtTime(gains.b, now, 0.01)
@@ -362,4 +412,13 @@ export class DeckEngine {
     const snapshot = this.snapshot()
     this.listeners.forEach((listener) => listener(snapshot))
   }
+}
+
+function createSafetyCeilingCurve(size = 65_536, ceiling = 0.95): Float32Array<ArrayBuffer> {
+  const curve = new Float32Array(new ArrayBuffer(size * Float32Array.BYTES_PER_ELEMENT))
+  for (let index = 0; index < size; index += 1) {
+    const input = (index / (size - 1)) * 2 - 1
+    curve[index] = clamp(input, -ceiling, ceiling)
+  }
+  return curve
 }

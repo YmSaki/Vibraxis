@@ -24,12 +24,28 @@ class FakeCompressor {
   connect(): void {}
 }
 
+class FakeBiquad {
+  type: BiquadFilterType = 'lowpass'
+  frequency = new FakeParam()
+  Q = new FakeParam()
+  gain = new FakeParam()
+  connect(): void {}
+}
+
+class FakeWaveShaper {
+  curve: Float32Array | null = null
+  oversample: OverSampleType = 'none'
+  connect(): void {}
+}
+
 class FakeContext {
   currentTime = 0
   state: AudioContextState = 'suspended'
   destination = {}
   gains: FakeGain[] = []
   compressors: FakeCompressor[] = []
+  biquads: FakeBiquad[] = []
+  waveShapers: FakeWaveShaper[] = []
   resumeError: Error | null = null
   deferredDecode = false
   decodeResolvers: Array<(buffer: AudioBuffer) => void> = []
@@ -44,6 +60,18 @@ class FakeContext {
     const compressor = new FakeCompressor()
     this.compressors.push(compressor)
     return compressor
+  }
+
+  createBiquadFilter(): FakeBiquad {
+    const filter = new FakeBiquad()
+    this.biquads.push(filter)
+    return filter
+  }
+
+  createWaveShaper(): FakeWaveShaper {
+    const shaper = new FakeWaveShaper()
+    this.waveShapers.push(shaper)
+    return shaper
   }
 
   async resume(): Promise<void> {
@@ -82,9 +110,58 @@ describe('DeckEngine mixer routing', () => {
 
     expect(context.gains[0].gain.value).toBeCloseTo(0.6)
     expect(context.gains[1].gain.value).toBeCloseTo(1.25)
-    expect(context.gains[2].gain.value).toBeCloseTo(1)
-    expect(context.gains[4].gain.value).toBeCloseTo(0)
+    expect(context.gains[3].gain.value).toBeCloseTo(1)
+    expect(context.gains[6].gain.value).toBeCloseTo(0)
     expect(engine.snapshot().crossfader).toBe(-1)
+  })
+
+  it('uses a center-unity DJ curve for manual crossfader movement', () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+
+    engine.setCrossfader(0)
+    expect(context.gains[3].gain.value).toBe(1)
+    expect(context.gains[6].gain.value).toBe(1)
+
+    engine.setCrossfader(-0.5)
+    expect(context.gains[3].gain.value).toBe(1)
+    expect(context.gains[6].gain.value).toBe(0.5)
+
+    engine.setCrossfader(0.5)
+    expect(context.gains[3].gain.value).toBe(0.5)
+    expect(context.gains[6].gain.value).toBe(1)
+  })
+
+  it('retains equal-power as an explicit automation curve', () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+
+    engine.setCrossfader(0, 'equalPower')
+
+    expect(context.gains[3].gain.value).toBeCloseTo(Math.SQRT1_2)
+    expect(context.gains[6].gain.value).toBeCloseTo(Math.SQRT1_2)
+  })
+
+  it('creates and controls low, mid, and high EQ filters per deck', () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+
+    expect(context.biquads).toHaveLength(6)
+    expect(context.biquads.slice(0, 3).map((filter) => filter.type)).toEqual(['lowshelf', 'peaking', 'highshelf'])
+    expect(context.biquads.slice(0, 3).map((filter) => filter.frequency.value)).toEqual([250, 1_000, 4_000])
+
+    engine.setDeckEq('A', 'low', -8)
+    engine.setDeckEq('A', 'mid', 4)
+    engine.setDeckEq('A', 'high', 99)
+
+    expect(context.biquads[0].gain.value).toBe(-8)
+    expect(context.biquads[1].gain.value).toBe(4)
+    expect(context.biquads[2].gain.value).toBe(12)
+    expect(context.gains[2].gain.value).toBeCloseTo(10 ** (-16 / 20))
+
+    engine.setDeckEq('A', 'mid', 0)
+    engine.setDeckEq('A', 'high', 0)
+    expect(context.gains[2].gain.value).toBe(1)
   })
 
   it('clamps all public mixer controls to safe ranges', () => {
@@ -172,6 +249,12 @@ describe('DeckEngine mixer routing', () => {
     const limiter = context.compressors[0]
     expect(limiter.threshold.value).toBeLessThan(0)
     expect(limiter.ratio.value).toBeGreaterThanOrEqual(20)
+    expect(context.waveShapers).toHaveLength(1)
+    expect(context.waveShapers[0].oversample).toBe('4x')
+    const ceiling = context.waveShapers[0].curve
+    expect(ceiling).not.toBeNull()
+    expect(Math.max(...ceiling!)).toBeLessThanOrEqual(0.95)
+    expect(Math.min(...ceiling!)).toBeGreaterThanOrEqual(-0.95)
   })
 
   it('staged load failure leaves the previous track fully intact', async () => {

@@ -97,6 +97,7 @@ const KNOWN_COMMANDS = new Set([
   'deck.setPad',
   'deck.clearPad',
   'deck.setGain',
+  'deck.setEq',
   'deck.setVelocity',
   'deck.setTempoInterpretation',
   'deck.sync',

@@ -1,8 +1,11 @@
 import type { AnalysisCapabilities } from "../analysis/index.js";
 import type { DjDecision, DjIntent } from "../dj/index.js";
 import type {
+  DeckEqState,
   DeckLoadRequest,
+  DeckSetEqParams,
   MixerP0When,
+  MixerState,
   RampCrossfaderParams,
 } from "../vdap/index.js";
 
@@ -66,12 +69,33 @@ type _RampDurationMustHaveExactlyOneUnit = AssertFalse<
     : false
 >;
 
+type _RampDoesNotAcceptDjCurve = AssertFalse<
+  { duration: { seconds: 4 }; to: 1; curve: "dj" } extends RampCrossfaderParams
+    ? true
+    : false
+>;
+
 type _MusicalMixerWhenMustHaveDeck = AssertFalse<
   { at: "nextBar" } extends MixerP0When ? true : false
 >;
 
 type _ImmediateMixerWhenNeedsNoDeck = Assert<
   { at: "immediate" } extends MixerP0When ? true : false
+>;
+
+type _DeckEqStateIsPinned = Assert<
+  Same<DeckEqState, { lowDb: number; midDb: number; highDb: number }>
+>;
+
+type _DeckSetEqParamsArePinned = Assert<
+  Same<
+    DeckSetEqParams,
+    { deckId: "A" | "B"; band: "low" | "mid" | "high"; gainDb: number }
+  >
+>;
+
+type _ManualCrossfaderSupportsDjCurve = Assert<
+  "dj" extends MixerState["crossfader"]["curve"] ? true : false
 >;
 
 type _AnalysisCapabilitiesAreClosed = AssertFalse<

@@ -161,13 +161,17 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
     this.#engine.setDeckGain(deckId, gain)
   }
 
+  async setEq(deckId: DeckId, band: 'low' | 'mid' | 'high', gainDb: number): Promise<void> {
+    this.#engine.setDeckEq(deckId, band, gainDb)
+  }
+
   async setVelocity(deckId: DeckId, velocity: number): Promise<PositionPair | undefined> {
     this.#engine.setPlaybackRate(deckId, velocity)
     return this.position(deckId)
   }
 
-  async setCrossfader(position: number): Promise<void> {
-    this.#engine.setCrossfader(position)
+  async setCrossfader(position: number, curve: 'dj' | 'equalPower' = 'dj'): Promise<void> {
+    this.#engine.setCrossfader(position, curve)
   }
 
   async setMasterGain(gain: number): Promise<void> {

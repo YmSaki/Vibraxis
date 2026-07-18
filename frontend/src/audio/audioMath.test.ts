@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateTempoSync, equalPowerGains, formatTime, interpretedBpm } from './audioMath'
+import { calculateTempoSync, djCrossfaderGains, equalPowerGains, formatTime, interpretedBpm } from './audioMath'
 
 describe('interpretedBpm', () => {
   it('supports half-time and double-time interpretations without changing audio speed', () => {
@@ -43,6 +43,24 @@ describe('equalPowerGains', () => {
     expect(gains.a).toBeCloseTo(Math.SQRT1_2)
     expect(gains.b).toBeCloseTo(Math.SQRT1_2)
     expect(gains.a ** 2 + gains.b ** 2).toBeCloseTo(1)
+  })
+})
+
+describe('djCrossfaderGains', () => {
+  it('keeps both decks at unity in the center', () => {
+    expect(djCrossfaderGains(0)).toEqual({ a: 1, b: 1 })
+  })
+
+  it('only attenuates the deck opposite the selected side', () => {
+    expect(djCrossfaderGains(-1)).toEqual({ a: 1, b: 0 })
+    expect(djCrossfaderGains(-0.5)).toEqual({ a: 1, b: 0.5 })
+    expect(djCrossfaderGains(0.5)).toEqual({ a: 0.5, b: 1 })
+    expect(djCrossfaderGains(1)).toEqual({ a: 0, b: 1 })
+  })
+
+  it('clamps positions outside the fader range', () => {
+    expect(djCrossfaderGains(-3)).toEqual({ a: 1, b: 0 })
+    expect(djCrossfaderGains(3)).toEqual({ a: 0, b: 1 })
   })
 })
 

@@ -243,6 +243,27 @@ describe('MessagePortTransport', () => {
     unknownCommand.close()
   })
 
+  it('passes deck.setEq through the transport command allowlist', async () => {
+    const handler = vi.fn((request: RuntimeRequestEnvelope) => completed(request.requestId))
+    const transport = new MessagePortTransport(handler)
+    await exchange(transport.uiPort, hello('hello-eq', 'ui'))
+
+    const response = await exchange(transport.uiPort, {
+      vdap: VDAP_VERSION,
+      kind: 'request',
+      requestId: 'eq',
+      command: 'deck.setEq',
+      params: { deckId: 'A', band: 'mid', gainDb: -3 },
+    })
+
+    expect(response).toMatchObject({ state: 'completed', requestId: 'eq' })
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ command: 'deck.setEq' }),
+      expect.objectContaining({ role: 'ui', origin: 'user' }),
+    )
+    transport.close()
+  })
+
   it('replays only the cached ack and rejects conflicting requestId reuse', async () => {
     const accepted: VdapAcceptedAck = {
       vdap: VDAP_VERSION,

@@ -52,6 +52,7 @@ function audioPort(): RuntimeAudioPort {
     seek: vi.fn(async (_deckId, request) =>
       position(request.target.type === 'sourceSeconds' ? request.target.sourceSeconds : 16)),
     setGain: vi.fn(async () => undefined),
+    setEq: vi.fn(async () => undefined),
     setVelocity: vi.fn(async () => position(8)),
     setCrossfader: vi.fn(async () => undefined),
     setMasterGain: vi.fn(async () => undefined),
@@ -284,8 +285,8 @@ describe('CommandDispatcher', () => {
     expect(store.getSnapshot().decks.A.transport.phase).toBe('ready')
   })
 
-  it('validates ranges and atomically applies gain, velocity, seek, and mixer values', async () => {
-    const { dispatcher, context, store } = setup()
+  it('validates ranges and atomically applies gain, EQ, velocity, seek, and mixer values', async () => {
+    const { dispatcher, context, store, audio } = setup()
     bindDeck(store)
     const invalid = messages(await dispatcher.handle(
       request('bad-gain', 'deck.setGain', { deckId: 'A', gain: 2 }),
@@ -293,7 +294,22 @@ describe('CommandDispatcher', () => {
     ))[0]
     expect(invalid).toMatchObject({ error: { code: 'E_OUT_OF_RANGE' } })
 
+    const invalidEq = messages(await dispatcher.handle(
+      request('bad-eq', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: -12.1 }),
+      context,
+    ))[0]
+    expect(invalidEq).toMatchObject({ error: { code: 'E_OUT_OF_RANGE' } })
+
+    const invalidBand = messages(await dispatcher.handle(
+      request('bad-eq-band', 'deck.setEq', { deckId: 'A', band: 'bass', gainDb: 0 }),
+      context,
+    ))[0]
+    expect(invalidBand).toMatchObject({ error: { code: 'E_INVALID_PARAMS' } })
+
     await dispatcher.handle(request('gain', 'deck.setGain', { deckId: 'A', gain: 0.7 }), context)
+    await dispatcher.handle(request('eq-low', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: -12 }), context)
+    await dispatcher.handle(request('eq-mid', 'deck.setEq', { deckId: 'A', band: 'mid', gainDb: 2.5 }), context)
+    await dispatcher.handle(request('eq-high', 'deck.setEq', { deckId: 'A', band: 'high', gainDb: 12 }), context)
     await dispatcher.handle(request('velocity', 'deck.setVelocity', { deckId: 'A', velocity: 1.25 }), context)
     await dispatcher.handle(request('seek', 'deck.seek', {
       deckId: 'A', target: { type: 'sourceSeconds', sourceSeconds: 32 }, resume: 'pause',
@@ -303,9 +319,14 @@ describe('CommandDispatcher', () => {
 
     const snapshot = store.getSnapshot()
     expect(snapshot.decks.A.gain).toBe(0.7)
+    expect(snapshot.decks.A.eq).toEqual({ lowDb: -12, midDb: 2.5, highDb: 12 })
+    expect(audio.setEq).toHaveBeenNthCalledWith(1, 'A', 'low', -12)
+    expect(audio.setEq).toHaveBeenNthCalledWith(2, 'A', 'mid', 2.5)
+    expect(audio.setEq).toHaveBeenNthCalledWith(3, 'A', 'high', 12)
     expect(snapshot.decks.A.playback.configuredVelocity).toBe(1.25)
     expect(snapshot.decks.A.playback.position.sourceSeconds).toBe(32)
     expect(snapshot.mixer.crossfader.effective).toBe(0.5)
+    expect(snapshot.mixer.crossfader.curve).toBe('dj')
     expect(snapshot.mixer.masterGain).toBe(0.8)
     expect(snapshot.intents).toEqual({})
   })

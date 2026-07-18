@@ -24,7 +24,7 @@ VDAP本体は長期的な通信契約を定義する。この文書は、その�
 すでに利用できる土台:
 
 - React/Viteの2デッキUIと手動再生
-- equal-powerクロスフェーダー
+- 手動DJカーブのクロスフェーダー（自動rampはequal-power）
 - BPM、キー、Camelot、energy、セクション要約を持つcatalogと、beat/downbeat配列を持つ個別解析JSON
 - テンポ同期計算、パフォーマンスパッド、手動override
 - VDAP Draftと適合テストマトリクス
@@ -289,7 +289,7 @@ frontend/src/runtime/
 - 再生中デッキへのAgent loadを既定拒否する。
 - 位置ペア`{sourceSeconds, atRuntimeTime}`と`headVelocity`をRuntimeから配信する。
 - master直前に最終ピーク保護を入れる。
-- equal-powerクロスフェーダーを維持する。
+- 手動操作は中央ユニティのDJカーブ、自動rampはequal-powerとして分離する。
 - AudioContext lock、decode失敗、曲末端を安定エラーへ写像する。
 
 最終ピーク保護は、ハッカソンでは`DynamicsCompressorNode`等を用いてよい。重要なのは実装方式ではなく、最大デッキゲインと中央ミックス時にも出力が破綻しないことである。

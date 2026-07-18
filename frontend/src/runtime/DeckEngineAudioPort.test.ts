@@ -17,6 +17,20 @@ class FakeGain {
   connect(): void {}
 }
 
+class FakeBiquad {
+  type: BiquadFilterType = 'lowpass'
+  frequency = new FakeParam()
+  Q = new FakeParam()
+  gain = new FakeParam()
+  connect(): void {}
+}
+
+class FakeWaveShaper {
+  curve: Float32Array | null = null
+  oversample: OverSampleType = 'none'
+  connect(): void {}
+}
+
 class FakeSource {
   buffer: AudioBuffer | null = null
   playbackRate = new FakeParam()
@@ -32,6 +46,7 @@ class FakeContext {
   state: AudioContextState = 'suspended'
   destination = {}
   sources: FakeSource[] = []
+  biquads: FakeBiquad[] = []
   deferredDecode = false
   decodeResolvers: Array<(buffer: AudioBuffer) => void> = []
   decodedCount = 0
@@ -49,6 +64,16 @@ class FakeContext {
       release: new FakeParam(),
       connect(): void {},
     }
+  }
+
+  createBiquadFilter(): FakeBiquad {
+    const filter = new FakeBiquad()
+    this.biquads.push(filter)
+    return filter
+  }
+
+  createWaveShaper(): FakeWaveShaper {
+    return new FakeWaveShaper()
   }
 
   createBufferSource(): FakeSource {
@@ -158,6 +183,17 @@ afterEach(() => {
 })
 
 describe('DeckEngineAudioPort', () => {
+  it('maps VDAP EQ changes onto the selected deck filters', async () => {
+    const { context, port } = createPort()
+
+    await port.setEq('B', 'low', -9)
+    await port.setEq('B', 'mid', 3.5)
+    await port.setEq('B', 'high', 7)
+
+    expect(context.biquads.slice(3).map((filter) => filter.gain.value)).toEqual([-9, 3.5, 7])
+    expect(context.biquads.slice(0, 3).map((filter) => filter.gain.value)).toEqual([0, 0, 0])
+  })
+
   it('loads a catalog track into a binding with the decoded duration', async () => {
     const { port } = createPort()
     const result = await port.load({

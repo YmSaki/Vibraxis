@@ -3,7 +3,7 @@ import type { RuntimeState } from '@vibraxis/shared/vdap'
 import { DeckEngine, type DeckId, type DeckSnapshot } from './audio/DeckEngine'
 import { calculateTempoSync, interpretedBpm, type TempoMultiplier } from './audio/audioMath'
 import { fetchCatalog, type CatalogTrack } from './catalog'
-import { Deck } from './components/Deck'
+import { Deck, type EqBand } from './components/Deck'
 import { TrackLibrary } from './components/TrackLibrary'
 import { createRuntime, runtimeNow } from './runtime/createRuntime'
 import { DeckObjectUrls } from './runtime/DeckObjectUrls'
@@ -239,6 +239,18 @@ export default function App() {
     onCue: () => triggerCue(id),
     onSeek: (seconds: number) => seekDeck(id, seconds),
     onGain: (value: number) => run(async (vdap) => settleMutation(vdap.mutate('deck.setGain', { deckId: id, gain: value }))),
+    eq: {
+      low: runtimeState?.decks[id].eq.lowDb ?? 0,
+      mid: runtimeState?.decks[id].eq.midDb ?? 0,
+      high: runtimeState?.decks[id].eq.highDb ?? 0,
+    },
+    onEq: (band: EqBand, gainDb: number) =>
+      run(async (vdap) => settleMutation(vdap.mutate('deck.setEq', { deckId: id, band, gainDb }))),
+    onEqReset: () => run(async (vdap) => {
+      for (const band of ['low', 'mid', 'high'] as const) {
+        await settleMutation(vdap.mutate('deck.setEq', { deckId: id, band, gainDb: 0 }))
+      }
+    }),
     onRate: (value: number) => {
       setSyncNotice(null)
       run(async (vdap) => settleMutation(vdap.mutate('deck.setVelocity', { deckId: id, velocity: value })))
@@ -360,7 +372,7 @@ export default function App() {
       <footer className="footer">
         <span>ANALYZED LOCAL LIBRARY</span>
         <span>VDAP RUNTIME · MESSAGEPORT</span>
-        <span>2 DECKS · EQUAL POWER MIX</span>
+        <span>2 DECKS · DJ CURVE MIX</span>
       </footer>
     </main>
   )

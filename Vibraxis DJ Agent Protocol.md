@@ -298,7 +298,7 @@ position(t) = sourceSeconds + (t - atRuntimeTime) × headVelocity
   "audio": { "contextState": "running", "sampleRate": 48000, "outputLatencySeconds": 0.012 },
   "mixer": {
     "crossfader": { "base": 0.0, "override": null, "effective": 0.0,
-      "curve": "equalPower", "automation": null },
+      "curve": "dj", "automation": null },
     "masterGain": 0.8
   },
   "decks": {
@@ -340,6 +340,7 @@ position(t) = sourceSeconds + (t - atRuntimeTime) × headVelocity
         "effectiveBpm": 142.0
       },
       "gain": 1.0,
+      "eq": { "lowDb": 0.0, "midDb": 0.0, "highDb": 0.0 },
       "pads": {
         "selectedSlot": 1,
         "slots": [ { "slot": 1, "type": "hotCue", "label": "INTRO",
@@ -362,6 +363,7 @@ position(t) = sourceSeconds + (t - atRuntimeTime) × headVelocity
         "interpretedBpm": null, "effectiveBpm": null
       },
       "gain": 1.0,
+      "eq": { "lowDb": 0.0, "midDb": 0.0, "highDb": 0.0 },
       "pads": { "selectedSlot": 1, "slots": [] }
     }
   },
@@ -434,7 +436,7 @@ effectiveBpm       = interpretedBpm × configuredVelocity
 | コマンド | immediate | nextBeat / nextBar | P0規則 |
 |---|---:|---:|---|
 | `deck.play`, `deck.pause`, `deck.seek`, `deck.selectPad` | Yes | Yes | 拍に合わせる transport 操作 |
-| `deck.setGain`, `deck.setVelocity`, `deck.sync` | Yes | Yes | 遷移準備 |
+| `deck.setGain`, `deck.setEq`, `deck.setVelocity`, `deck.sync` | Yes | Yes | 遷移準備 |
 | `mixer.setCrossfader`, `mixer.rampCrossfader` | Yes | Yes | ミックス本体。ramp の `when` は開始時刻 |
 | `deck.load`, `deck.unload` | Yes | No | 事前準備であり予約不可 |
 | `state.subscribe`, `state.unsubscribe` | Yes | No | 接続管理は予約不可 |
@@ -588,9 +590,11 @@ binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALY
 - `deck.setPad {deckId, slot, sourceSeconds, label?}`(`padEdit` 能力): `source:"user"` のパッドを設定。座標(beatIndex 等)はランタイムがグリッドから導出する。
 - `deck.clearPad {deckId, slot}`(`padEdit` 能力): `locked:true` のパッドは `E_INVALID_PARAMS` で拒否。
 
-### 11.9 `deck.setGain`
+### 11.9 `deck.setGain` / `deck.setEq`
 
 `{deckId, gain}`。線形ゲイン、範囲は `limits.gainRange`(既定 0〜1.5)。短い平滑化(≈10 ms)で適用することを **SHOULD** とする。
+
+`deck.setEq {deckId, band, gainDb}`。`band` は `"low" | "mid" | "high"`、`gainDb` は −12..+12 dB。正準状態の `deck.eq` は常に `{lowDb, midDb, highDb}` を持ち、初期値はすべて 0 dB とする。短い平滑化で適用することを **SHOULD** とする。競合ドメインはデッキごとの `eq` とする。
 
 ### 11.10 `deck.setVelocity`
 
@@ -613,7 +617,7 @@ binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALY
 
 ### 11.12 `mixer.setCrossfader` / `mixer.rampCrossfader` / `mixer.setMasterGain`
 
-- `mixer.setCrossfader {position}`: −1(A 全開)〜 +1(B 全開)。ベース値を設定する。カーブは `equalPower` を既定とし、正規化位置 `n = (position+1)/2` に対し `gainA = cos(nπ/2)`, `gainB = sin(nπ/2)`。
+- `mixer.setCrossfader {position}`: −1(A 全開)〜 +1(B 全開)。ベース値を設定する。手動操作の既定カーブは `dj` とし、正規化位置 `n = (position+1)/2` に対し `gainA = min(1, 2(1−n))`, `gainB = min(1, 2n)` とする。中央では両デッキがユニティゲインとなり、左右へ動かすと反対側だけを減衰させる。`mixer.rampCrossfader` のカーブは引き続き `equalPower` とする。
 - `mixer.setMasterGain {gain}`: 範囲 `limits.masterRange`(既定 0〜1)。
 
 `mixer.rampCrossfader` は beat プロファイルのゴールデンパス用クロスフェーダー automation である。細かな `mixer.setCrossfader` Intent の列へ展開しては **MUST NOT** ならず、1つの Intent として音声エンジンの時間軸へ予約する。
@@ -628,7 +632,7 @@ binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALY
 - `to` は −1..+1。`duration` は `{bars}` / `{beats}` / `{seconds}` の **正確に1つ**を持つ。`bars` / `beats` は正整数、`seconds` は有限の正数。`curve` は P0 では `"equalPower"` のみ。
 - `duration.bars` / `duration.beats` では `referenceDeckId` が必須であり、そのデッキの binding・grid・confidence・`headVelocity > 0`・`direction:"forward"` を受理時、開始時、実行中に継続検証する。不能なら §10.2 と同じ `E_QUANTIZE_UNAVAILABLE` と reason を用いる。開始後に不能となった場合は、automation を現在位置で停止して `intent.failed` とし、目標までジャンプしては **MUST NOT** ならない。
 - `when` は ramp の **開始時刻**、`duration` は開始後の長さである。`duration.seconds` はランタイム秒で固定する。beats/bars は開始時の次の対応境界から指定個数先までの音楽的区間とし、参照デッキの速度・位置が連続的に変わった場合は終了予定を再計算する。`durationSeconds` は最終的な実経過秒を報告する。
-- ramp 開始時のクロスフェーダー値を `from` とし、`to` まで単調に進める。正規化クロスフェーダー位置を時間に対して線形に補間し、各瞬間のデッキゲインへ本節冒頭の equal-power 式を適用する。`mixer.crossfader.automation` は実行中 `{intentId, from, to, startedAtRuntimeTime, durationSecondsEstimate}`、それ以外は `null` とする。実行中の `base` / `effective` はその時点の automation 値を表す。
+- ramp 開始時のクロスフェーダー値を `from` とし、`to` まで単調に進める。正規化クロスフェーダー位置を時間に対して線形に補間し、各瞬間は `n = (position+1)/2`、`gainA = cos(nπ/2)`, `gainB = sin(nπ/2)` の equal-power 式を適用する。`mixer.crossfader.automation` は実行中 `{intentId, from, to, startedAtRuntimeTime, durationSecondsEstimate}`、それ以外は `null` とする。実行中の `base` / `effective` はその時点の automation 値を表す。
 - 音声パラメータはオーディオ時間軸上で連続更新してよい。正準状態の `base` / `effective` は delta・snapshot 生成時点で sampling した値であり、オーディオ量子ごとの revision 増加を要求しない。ただし開始・取消・失敗・完了は必ず revision を進める。
 - 競合ドメインは mixer `crossfader`。origin `"user"` の `mixer.setCrossfader` が受理された場合、同ドメインの待機中・実行中 agent ramp を `intent.cancelled`(`reason:"userOverride"`)で終端し、音声 automation を取り消してから、ユーザー指定の手動値を `base` / `effective` に採用し、`automation:null` とする。途中の予定値や `to` へジャンプしては **MUST NOT** ならない。
 - ramp は完了時に `intent.completed`、user 操作・panic・`schedule.cancel`・切断時に `intent.cancelled`、参照条件喪失または音声 automation 失敗時に `intent.failed` となる。いずれも ramp の論理終端は1回だけで、終端時の `result` に `{from, to, startedAtRuntimeTime, endedAtRuntimeTime, durationSeconds}` を含める。開始前に取消された場合は `startedAtRuntimeTime:null`, `durationSeconds:0` とする。正常完了では `base:to`, `effective:to`, `automation:null` を同一 revision で確定する。
@@ -689,7 +693,7 @@ binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALY
 
 ### 12.5 ユーザーとエージェントの権限
 
-**競合ドメイン** を次のとおり定義する: デッキごとに `binding`(load・unload。競合終端は §11.4〜§12.3 の専用規則を優先) / `transport`(play・pause・seek・pad ジャンプ) / `padSelection`(selectPad) / `velocity`(setVelocity・sync・setTempoInterpretation) / `gain`、ミキサーに `crossfader`(`setCrossfader`・`rampCrossfader`) / `master`。
+**競合ドメイン** を次のとおり定義する: デッキごとに `binding`(load・unload。競合終端は §11.4〜§12.3 の専用規則を優先) / `transport`(play・pause・seek・pad ジャンプ) / `padSelection`(selectPad) / `velocity`(setVelocity・sync・setTempoInterpretation) / `gain` / `eq`、ミキサーに `crossfader`(`setCrossfader`・`rampCrossfader`) / `master`。
 
 規範規則:
 
@@ -816,7 +820,7 @@ binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALY
 
 ### 16.2 プロファイル別の必須フィールド
 
-- core: 状態モデルのトップレベル `intents` map と、全デッキの `deckId` / `load` / `binding` / `transport` / `playback` / `tempo` / `gain` / `pads` を **MUST** 存在させる。empty デッキでは `binding:null`、BPM 未確定値は `null` とする。`playback` は `baseVelocity` / `configuredVelocity` / `headVelocity` / `direction` / `override` を常に持つ。`playback.override`、`mixer.crossfader.override`、`mixer.crossfader.automation` は常に `null` でよいが、フィールド自体を **MUST** 存在させる(クライアントの分岐と JSON Patch path を安定させるため)。デッキ配下の `pendingIntents` は存在しては **MUST NOT** ならない。
+- core: 状態モデルのトップレベル `intents` map と、全デッキの `deckId` / `load` / `binding` / `transport` / `playback` / `tempo` / `gain` / `eq` / `pads` を **MUST** 存在させる。`eq` は `lowDb` / `midDb` / `highDb` を常に持つ。empty デッキでは `binding:null`、BPM 未確定値は `null` とする。`playback` は `baseVelocity` / `configuredVelocity` / `headVelocity` / `direction` / `override` を常に持つ。`playback.override`、`mixer.crossfader.override`、`mixer.crossfader.automation` は常に `null` でよいが、フィールド自体を **MUST** 存在させる(クライアントの分岐と JSON Patch path を安定させるため)。デッキ配下の `pendingIntents` は存在しては **MUST NOT** ならない。
 - beat: core に加え、`binding.analysis.grid` の `available`/`confidence` を正しく反映し、`deck.getGrid` がスキーマ v2 の配列をそのまま返し、`mixer.rampCrossfader` と実行中の `mixer.crossfader.automation` を実装すること。
 - scratch: `playback.override` に `{active:true, source:"gesture"|"manual", velocity, intentId?}` を反映すること。
 
@@ -1101,7 +1105,7 @@ core は現行 `DeckEngine` の上にアダプター層(トップレベル Inten
 | headVelocity | ソース秒/ランタイム秒 float | core/beat は playing 時 configuredVelocity、停止時 0 |
 | gain(デッキ) | 線形 float | 既定 0..1.5 |
 | masterGain | 線形 float | 既定 0..1 |
-| crossfader | float | −1(A)..+1(B)、equalPower |
+| crossfader | float | −1(A)..+1(B)。手動は `dj`、automationは `equalPower` |
 | gate | 線形乗算 float | 0..1 |
 | bpm(base/interpreted/effective) | 拍/分 float または null | binding ありでは > 0、empty では `null` |
 | beatIndex / barIndex / phraseIndex | int | 0 起点(ピックアップ barIndex = −1) |
@@ -1120,7 +1124,8 @@ core は現行 `DeckEngine` の上にアダプター層(トップレベル Inten
 - `load.phase`: `idle` / `loading`
 - `playback.direction`(core/beat): `forward` / `stopped`
 - `intent.state`: `scheduled` / `executing`
-- `crossfader.curve` / `ramp.curve`: `equalPower`
+- `crossfader.curve`: `dj` / `equalPower`、`ramp.curve`: `equalPower`
+- `eq.band`: `low` / `mid` / `high`
 - `tempoInterpretation`: `half` / `normal` / `double`
 - `sync.mode`: `tempo` / `tempoPhase` / `tempoBar`
 - `when.at`: `immediate` / `nextBeat` / `nextBar` / `beats` / `bars` / `runtimeTime` / `sourcePosition`
@@ -1135,7 +1140,7 @@ core は現行 `DeckEngine` の上にアダプター層(トップレベル Inten
 ### 21.3 コマンド一覧(参照)
 
 クエリ: `session.hello`, `state.get`, `deck.getGrid`
-ミューテーション: `state.subscribe`, `state.unsubscribe`, `deck.load`, `deck.unload`, `deck.play`, `deck.pause`, `deck.seek`, `deck.selectPad`, `deck.setPad`*, `deck.clearPad`*, `deck.setGain`, `deck.setVelocity`, `deck.setTempoInterpretation`, `deck.sync`, `mixer.setCrossfader`, `mixer.rampCrossfader`‡, `mixer.setMasterGain`, `schedule.cancel`, `runtime.panic`, `deck.applyGesture`†, `deck.releaseOverrides`†
+ミューテーション: `state.subscribe`, `state.unsubscribe`, `deck.load`, `deck.unload`, `deck.play`, `deck.pause`, `deck.seek`, `deck.selectPad`, `deck.setPad`*, `deck.clearPad`*, `deck.setGain`, `deck.setEq`, `deck.setVelocity`, `deck.setTempoInterpretation`, `deck.sync`, `mixer.setCrossfader`, `mixer.rampCrossfader`‡, `mixer.setMasterGain`, `schedule.cancel`, `runtime.panic`, `deck.applyGesture`†, `deck.releaseOverrides`†
 (* = `padEdit` 能力、‡ = beat `crossfaderRamp` 能力、† = scratch プロファイル)
 
 ---

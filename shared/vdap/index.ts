@@ -155,6 +155,17 @@ export type DeckSetPadParams = {
 }
 export type DeckClearPadParams = { deckId: DeckId; slot: number }
 export type DeckSetGainParams = { deckId: DeckId; gain: number }
+export type EqBand = 'low' | 'mid' | 'high'
+export type DeckEqState = {
+  lowDb: number
+  midDb: number
+  highDb: number
+}
+export type DeckSetEqParams = {
+  deckId: DeckId
+  band: EqBand
+  gainDb: number
+}
 export type DeckSetVelocityParams = { deckId: DeckId; velocity: number }
 export type TempoInterpretation = 'half' | 'normal' | 'double'
 export type DeckSetTempoInterpretationParams = {
@@ -261,6 +272,7 @@ export type DeckClearPadRequest = DeckMutationRequest<
   ImmediateWhen
 >
 export type DeckSetGainRequest = DeckMutationRequest<'deck.setGain', DeckSetGainParams, P0When>
+export type DeckSetEqRequest = DeckMutationRequest<'deck.setEq', DeckSetEqParams, P0When>
 export type DeckSetVelocityRequest = DeckMutationRequest<
   'deck.setVelocity',
   DeckSetVelocityParams,
@@ -313,6 +325,7 @@ export type VdapRequest =
   | DeckSetPadRequest
   | DeckClearPadRequest
   | DeckSetGainRequest
+  | DeckSetEqRequest
   | DeckSetVelocityRequest
   | DeckSetTempoInterpretationRequest
   | DeckSyncRequest
@@ -431,7 +444,7 @@ export type MixerState = {
     base: number
     override: CrossfaderOverride | null
     effective: number
-    curve: 'equalPower'
+    curve: 'dj' | 'equalPower'
     automation: CrossfaderAutomation | null
   }
   masterGain: number
@@ -526,6 +539,7 @@ export type DeckState = {
   playback: PlaybackState
   tempo: TempoState
   gain: number
+  eq: DeckEqState
   pads: PadState
 }
 
@@ -536,6 +550,7 @@ export type IntentDomain =
   | 'padEdit'
   | 'velocity'
   | 'gain'
+  | 'eq'
   | 'crossfader'
   | 'master'
   | 'subscription'

@@ -39,9 +39,11 @@ describe('RuntimeStore', () => {
       expect(deck.tempo.baseBpm).toBeNull()
       expect(deck.tempo.interpretedBpm).toBeNull()
       expect(deck.tempo.effectiveBpm).toBeNull()
+      expect(deck.eq).toEqual({ lowDb: 0, midDb: 0, highDb: 0 })
     }
     expect(snapshot.mixer.crossfader.override).toBeNull()
     expect(snapshot.mixer.crossfader.automation).toBeNull()
+    expect(snapshot.mixer.crossfader.curve).toBe('dj')
     expect(snapshot.intents).toEqual({})
   })
 

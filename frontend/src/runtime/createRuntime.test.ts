@@ -59,6 +59,10 @@ class FakeAudioPort implements RuntimeAudioPort {
     this.calls.push(`gain:${deckId}`)
   }
 
+  async setEq(deckId: DeckId): Promise<void> {
+    this.calls.push(`eq:${deckId}`)
+  }
+
   async setVelocity(deckId: DeckId): Promise<PositionPair | undefined> {
     this.calls.push(`velocity:${deckId}`)
     return undefined

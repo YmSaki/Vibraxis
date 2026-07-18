@@ -26,8 +26,9 @@ export interface RuntimeAudioPort {
   pause(deckId: DeckId): Promise<PositionPair>
   seek(deckId: DeckId, request: AudioSeekRequest): Promise<PositionPair>
   setGain(deckId: DeckId, gain: number): Promise<void>
+  setEq(deckId: DeckId, band: 'low' | 'mid' | 'high', gainDb: number): Promise<void>
   setVelocity(deckId: DeckId, velocity: number): Promise<PositionPair | undefined>
-  setCrossfader(position: number): Promise<void>
+  setCrossfader(position: number, curve?: 'dj' | 'equalPower'): Promise<void>
   setMasterGain(gain: number): Promise<void>
   panic(scope: RuntimePanicParams['scope']): Promise<Partial<Record<DeckId, PositionPair>>>
   /** Optional: notifies the runtime when a deck reaches the natural end of its track. */

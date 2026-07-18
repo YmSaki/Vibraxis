@@ -40,6 +40,7 @@ function createEmptyDeck(deckId: DeckId, runtimeTime: number): DeckState {
       effectiveBpm: null,
     },
     gain: 1,
+    eq: { lowDb: 0, midDb: 0, highDb: 0 },
     pads: { selectedSlot: 1, slots: [] },
   }
 }
@@ -62,7 +63,7 @@ export function createInitialRuntimeState(runtimeTime = 0): RuntimeState {
         base: 0,
         override: null,
         effective: 0,
-        curve: 'equalPower',
+        curve: 'dj',
         automation: null,
       },
       masterGain: 0.8,
@@ -105,6 +106,10 @@ function assertCanonicalState(state: RuntimeState): void {
     requireOwn(deck.tempo, 'baseBpm', `decks.${deckId}.tempo.baseBpm`)
     requireOwn(deck.tempo, 'interpretedBpm', `decks.${deckId}.tempo.interpretedBpm`)
     requireOwn(deck.tempo, 'effectiveBpm', `decks.${deckId}.tempo.effectiveBpm`)
+    requireOwn(deck, 'eq', `decks.${deckId}.eq`)
+    requireOwn(deck.eq, 'lowDb', `decks.${deckId}.eq.lowDb`)
+    requireOwn(deck.eq, 'midDb', `decks.${deckId}.eq.midDb`)
+    requireOwn(deck.eq, 'highDb', `decks.${deckId}.eq.highDb`)
 
     if (
       deck.load.phase === 'idle' &&
