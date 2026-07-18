@@ -415,6 +415,7 @@ export class CommandDispatcher {
     if (precondition) return rejected(request.requestId, precondition)
     const deck = this.store.getSnapshot().decks[params.value.deckId]
     if (command === 'deck.play' && !deck.binding) return rejectedError(request.requestId, 'E_DECK_EMPTY', 'Deck has no binding.')
+    const phaseAtAcceptance = deck.transport.phase
     const accepted = this.acceptGeneral(request, context, 'transport', { deckId: params.value.deckId }, when)
     if (!accepted.accepted) return accepted.rejection
     context.send(accepted.ack)
@@ -425,6 +426,10 @@ export class CommandDispatcher {
         : await this.audio.pause(params.value.deckId)
       const terminal = this.intents.complete(accepted.intentId, {}, undefined, (draft) => {
         const target = draft.decks[params.value.deckId]
+        // A natural audio end can arrive while an async transport operation is
+        // in flight. Its terminal position is authoritative and must not be
+        // replaced by a late pause/play completion.
+        if (phaseAtAcceptance !== 'ended' && target.transport.phase === 'ended') return
         target.playback.position = position
         target.transport.phase = command === 'deck.play' ? 'playing' : target.binding ? 'ready' : 'empty'
         target.playback.headVelocity = command === 'deck.play' ? target.playback.configuredVelocity : 0

@@ -65,7 +65,7 @@ export function createInitialRuntimeState(runtimeTime = 0): RuntimeState {
         curve: 'equalPower',
         automation: null,
       },
-      masterGain: 1,
+      masterGain: 0.8,
     },
     decks: {
       A: createEmptyDeck('A', runtimeTime),

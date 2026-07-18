@@ -6,7 +6,9 @@ import { fetchCatalog, type CatalogTrack } from './catalog'
 import { Deck } from './components/Deck'
 import { TrackLibrary } from './components/TrackLibrary'
 import { createRuntime, runtimeNow } from './runtime/createRuntime'
-import { VdapClient, VdapClientError, type MutationHandle } from './runtime/VdapClient'
+import { DeckObjectUrls } from './runtime/DeckObjectUrls'
+import { settleMutation } from './runtime/settleMutation'
+import { VdapClient, VdapClientError } from './runtime/VdapClient'
 import './styles.css'
 
 const emptyDeckView = (id: DeckId): DeckSnapshot => ({
@@ -20,14 +22,9 @@ const emptyDeckView = (id: DeckId): DeckSnapshot => ({
   loaded: false,
 })
 
-async function settle(mutation: Promise<MutationHandle>): Promise<void> {
-  const handle = await mutation
-  const terminal = await handle.terminal
-  if (terminal.event === 'intent.failed') throw new Error(terminal.error.message)
-}
-
 export default function App() {
   const engine = useMemo(() => new DeckEngine(), [])
+  const objectUrls = useMemo(() => new DeckObjectUrls(), [])
   const tracksRef = useRef<CatalogTrack[]>([])
   const runtime = useMemo(
     () =>
@@ -47,9 +44,9 @@ export default function App() {
   const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const [tempoMultipliers, setTempoMultipliers] = useState<Record<DeckId, TempoMultiplier>>({ A: 1, B: 1 })
   const [selectedCueSlots, setSelectedCueSlots] = useState<Record<DeckId, number>>({ A: 1, B: 1 })
-  const objectUrls = useRef<Partial<Record<DeckId, string>>>({})
-
   useEffect(() => engine.subscribe((snapshot) => setAudioReady(snapshot.audioReady)), [engine])
+
+  useEffect(() => () => objectUrls.dispose(), [objectUrls])
 
   useEffect(() => {
     const vdap = runtime.createUiClient()
@@ -125,21 +122,17 @@ export default function App() {
   const loadCatalogTrack = (id: DeckId, track: CatalogTrack) =>
     run(async (vdap) => {
       await engine.resume()
-      await settle(vdap.mutate('deck.load', { deckId: id, source: { kind: 'catalog', trackId: track.trackId } }))
+      await settleMutation(vdap.mutate('deck.load', { deckId: id, source: { kind: 'catalog', trackId: track.trackId } }))
+      objectUrls.clear(id)
       resetDeckUiState(id)
     })
 
   const loadFileTrack = (id: DeckId, file: File) =>
     run(async (vdap) => {
       await engine.resume()
-      const previous = objectUrls.current[id]
-      const url = URL.createObjectURL(file)
-      objectUrls.current[id] = url
-      try {
-        await settle(vdap.mutate('deck.load', { deckId: id, source: { kind: 'url', url, title: file.name } }))
-      } finally {
-        if (previous) URL.revokeObjectURL(previous)
-      }
+      await objectUrls.load(id, file, (url) =>
+        settleMutation(vdap.mutate('deck.load', { deckId: id, source: { kind: 'url', url, title: file.name } })),
+      )
       resetDeckUiState(id)
     })
 
@@ -147,12 +140,12 @@ export default function App() {
     run(async (vdap) => {
       const playing = runtimeState?.decks[id].transport.phase === 'playing'
       if (!playing) await engine.resume()
-      await settle(vdap.mutate(playing ? 'deck.pause' : 'deck.play', { deckId: id }))
+      await settleMutation(vdap.mutate(playing ? 'deck.pause' : 'deck.play', { deckId: id }))
     })
 
   const seekDeck = (id: DeckId, seconds: number, resume: 'keep' | 'pause' = 'keep') =>
     run(async (vdap) => {
-      await settle(
+      await settleMutation(
         vdap.mutate('deck.seek', {
           deckId: id,
           target: { type: 'sourceSeconds', sourceSeconds: Math.max(0, seconds) },
@@ -174,7 +167,7 @@ export default function App() {
         master.playback.configuredVelocity,
         interpretedBpm(followerTrack.bpm, tempoMultipliers[followerId]),
       )
-      await settle(vdap.mutate('deck.setVelocity', { deckId: followerId, velocity: result.playbackRate }))
+      await settleMutation(vdap.mutate('deck.setVelocity', { deckId: followerId, velocity: result.playbackRate }))
       setSyncNotice(
         result.exact
           ? `Deck ${followerId} synced to Deck ${masterId} at ${result.targetBpm.toFixed(1)} BPM.`
@@ -193,7 +186,7 @@ export default function App() {
     seekDeck(id, seconds)
   }
 
-  const panic = () => run(async (vdap) => settle(vdap.mutate('runtime.panic', {})))
+  const panic = () => run(async (vdap) => settleMutation(vdap.mutate('runtime.panic', {})))
 
   const enableAudio = () => {
     setError(null)
@@ -245,10 +238,10 @@ export default function App() {
     onPlayPause: () => togglePlayback(id),
     onCue: () => triggerCue(id),
     onSeek: (seconds: number) => seekDeck(id, seconds),
-    onGain: (value: number) => run(async (vdap) => settle(vdap.mutate('deck.setGain', { deckId: id, gain: value }))),
+    onGain: (value: number) => run(async (vdap) => settleMutation(vdap.mutate('deck.setGain', { deckId: id, gain: value }))),
     onRate: (value: number) => {
       setSyncNotice(null)
-      run(async (vdap) => settle(vdap.mutate('deck.setVelocity', { deckId: id, velocity: value })))
+      run(async (vdap) => settleMutation(vdap.mutate('deck.setVelocity', { deckId: id, velocity: value })))
     },
     onTempoSync: () => syncTempoTo(id),
     tempoSyncDisabled,
@@ -309,7 +302,7 @@ export default function App() {
               value={masterGain}
               onChange={(event) => {
                 const gain = Number(event.target.value)
-                run(async (vdap) => settle(vdap.mutate('mixer.setMasterGain', { gain })))
+                run(async (vdap) => settleMutation(vdap.mutate('mixer.setMasterGain', { gain })))
               }}
             />
           </label>
@@ -334,12 +327,12 @@ export default function App() {
               value={crossfader}
               onChange={(event) => {
                 const position = Number(event.target.value)
-                run(async (vdap) => settle(vdap.mutate('mixer.setCrossfader', { position })))
+                run(async (vdap) => settleMutation(vdap.mutate('mixer.setCrossfader', { position })))
               }}
             />
             <button
               className="center-button"
-              onClick={() => run(async (vdap) => settle(vdap.mutate('mixer.setCrossfader', { position: 0 })))}
+              onClick={() => run(async (vdap) => settleMutation(vdap.mutate('mixer.setCrossfader', { position: 0 })))}
             >
               CENTER
             </button>

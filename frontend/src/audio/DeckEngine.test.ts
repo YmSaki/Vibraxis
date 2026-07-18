@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createInitialRuntimeState } from '../runtime/RuntimeStore'
 import { DeckEngine } from './DeckEngine'
 
 class FakeParam {
@@ -64,6 +65,13 @@ function fakeFile(name: string): File {
 }
 
 describe('DeckEngine mixer routing', () => {
+  it('starts with the same master gain as canonical runtime state', () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+
+    expect(engine.snapshot().masterVolume).toBe(createInitialRuntimeState().mixer.masterGain)
+  })
+
   it('applies independent deck gain, equal-power crossfade, and master volume', () => {
     const context = new FakeContext()
     const engine = new DeckEngine(context as unknown as AudioContext)
@@ -106,9 +114,9 @@ describe('DeckEngine mixer routing', () => {
     await Promise.resolve()
 
     context.decodeResolvers[1]({ duration: 20 } as AudioBuffer)
-    await second
+    await expect(second).resolves.toMatchObject({ loadGeneration: 2 })
     context.decodeResolvers[0]({ duration: 40 } as AudioBuffer)
-    await first
+    await expect(first).resolves.toBeNull()
 
     expect(engine.snapshot().decks.A.name).toBe('new.mp3')
     expect(engine.snapshot().decks.A.duration).toBe(20)

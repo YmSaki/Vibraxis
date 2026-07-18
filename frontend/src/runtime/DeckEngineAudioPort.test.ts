@@ -32,6 +32,9 @@ class FakeContext {
   state: AudioContextState = 'suspended'
   destination = {}
   sources: FakeSource[] = []
+  deferredDecode = false
+  decodeResolvers: Array<(buffer: AudioBuffer) => void> = []
+  decodedCount = 0
 
   createGain(): FakeGain {
     return new FakeGain()
@@ -63,6 +66,10 @@ class FakeContext {
   }
 
   decodeAudioData(): Promise<AudioBuffer> {
+    this.decodedCount += 1
+    if (this.deferredDecode) {
+      return new Promise((resolve) => this.decodeResolvers.push(resolve))
+    }
     return Promise.resolve({ duration: 30 } as AudioBuffer)
   }
 }
@@ -187,6 +194,58 @@ describe('DeckEngineAudioPort', () => {
     )
   })
 
+  it('keeps the old audio playing when required analysis is unavailable', async () => {
+    const { context, engine, port } = createPort()
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:old', title: 'Old Track' },
+    })
+    await port.play('A')
+    context.currentTime = 4
+
+    await expect(port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: true,
+    })).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError && cause.error.code === 'E_ANALYSIS_UNAVAILABLE',
+    )
+
+    const deck = engine.snapshot().decks.A
+    expect(deck.name).toBe('Old Track')
+    expect(deck.playing).toBe(true)
+    expect(deck.position).toBeCloseTo(4)
+  })
+
+  it('does not replace live audio while prepared audio waits for analysis', async () => {
+    let resolveAnalysis!: (analysis: TrackAnalysis) => void
+    const analysis = new Promise<TrackAnalysis>((resolve) => { resolveAnalysis = resolve })
+    const { context, engine, port } = createPort({ fetchAnalysis: () => analysis })
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:old', title: 'Old Track' },
+    })
+    await port.play('A')
+    context.deferredDecode = true
+
+    const pending = port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: true,
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(context.decodeResolvers).toHaveLength(1)
+    context.decodeResolvers[0]({ duration: 30 } as AudioBuffer)
+    await Promise.resolve()
+    context.currentTime = 3
+    expect(engine.snapshot().decks.A).toMatchObject({ name: 'Old Track', playing: true })
+    expect(engine.snapshot().decks.A.position).toBeCloseTo(3)
+
+    resolveAnalysis(analysisFixture())
+    await expect(pending).resolves.toMatchObject({ binding: { trackId: 'track-1' } })
+    expect(engine.snapshot().decks.A).toMatchObject({ name: 'Test Track', playing: false })
+  })
+
   it('plays, tracks position with the fake clock, and pauses', async () => {
     const { context, port } = createPort()
     await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
@@ -245,6 +304,60 @@ describe('DeckEngineAudioPort', () => {
       (cause) =>
         cause instanceof RuntimeAudioError && cause.error.code === 'E_ANALYSIS_UNAVAILABLE',
     )
+  })
+
+  it('rejects a superseded load even after the newer load has committed audio', async () => {
+    const { context, port } = createPort()
+    context.deferredDecode = true
+
+    const oldLoad = port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:old', title: 'Old' },
+    })
+    const oldExpectation = expect(oldLoad).rejects.toSatisfy(
+      (cause) =>
+        cause instanceof RuntimeAudioError
+        && cause.error.code === 'E_LOAD_FAILED'
+        && cause.error.message.includes('superseded'),
+    )
+    while (context.decodeResolvers.length < 1) await Promise.resolve()
+    const newLoad = port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:new', title: 'New' },
+    })
+    while (context.decodeResolvers.length < 2) await Promise.resolve()
+
+    context.decodeResolvers[1]({ duration: 20 } as AudioBuffer)
+    await expect(newLoad).resolves.toMatchObject({
+      binding: { trackId: 'blob:new', durationSeconds: 20 },
+    })
+    context.decodeResolvers[0]({ duration: 40 } as AudioBuffer)
+    await oldExpectation
+  })
+
+  it('rejects a prepared load that becomes stale while waiting for analysis', async () => {
+    let resolveAnalysis!: (analysis: TrackAnalysis) => void
+    const analysis = new Promise<TrackAnalysis>((resolve) => { resolveAnalysis = resolve })
+    const { context, engine, port } = createPort({ fetchAnalysis: () => analysis })
+
+    const oldLoad = port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: true,
+    })
+    const oldExpectation = expect(oldLoad).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError && cause.error.code === 'E_LOAD_FAILED',
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(context.decodedCount).toBe(1)
+    expect(engine.snapshot().decks.A.loaded).toBe(false)
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:newer', title: 'Newer' },
+    })
+    resolveAnalysis(analysisFixture())
+
+    await oldExpectation
   })
 
   it('reports natural track ends through onTrackEnded', async () => {

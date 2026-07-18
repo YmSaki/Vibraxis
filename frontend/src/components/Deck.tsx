@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import type { DeckId, DeckSnapshot } from '../audio/DeckEngine'
 import { formatTime, interpretedBpm, type TempoMultiplier } from '../audio/audioMath'
 import type { CatalogTrack } from '../catalog'
@@ -48,6 +48,18 @@ export function Deck({
     event.target.value = ''
   }
   const interpretedTempo = track ? interpretedBpm(track.bpm, tempoMultiplier) : null
+  const [seekDraft, setSeekDraft] = useState<number | null>(null)
+  const seekDirty = useRef(false)
+  const commitSeek = (value: number) => {
+    if (!seekDirty.current) return
+    seekDirty.current = false
+    setSeekDraft(null)
+    onSeek(value)
+  }
+  const cancelSeek = () => {
+    seekDirty.current = false
+    setSeekDraft(null)
+  }
 
   return (
     <section className={`deck deck--${accent}`} aria-label={`Deck ${id}`}>
@@ -94,9 +106,16 @@ export function Deck({
         min="0"
         max={Math.max(deck.duration, 0.01)}
         step="0.01"
-        value={deck.position}
+        value={seekDraft ?? deck.position}
         disabled={!deck.loaded || loading}
-        onChange={(event) => onSeek(Number(event.target.value))}
+        onChange={(event) => {
+          seekDirty.current = true
+          setSeekDraft(Number(event.target.value))
+        }}
+        onPointerUp={(event) => commitSeek(Number(event.currentTarget.value))}
+        onPointerCancel={cancelSeek}
+        onKeyUp={(event) => commitSeek(Number(event.currentTarget.value))}
+        onBlur={(event) => commitSeek(Number(event.currentTarget.value))}
       />
 
       <div className="transport">

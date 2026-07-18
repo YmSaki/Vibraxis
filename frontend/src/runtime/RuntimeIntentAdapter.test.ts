@@ -30,7 +30,7 @@ describe('RuntimeIntentAdapter', () => {
 
     expect(result).toBeNull()
     expect(store.getSnapshot().revision).toBe(revision)
-    expect(store.getSnapshot().mixer.masterGain).toBe(1)
+    expect(store.getSnapshot().mixer.masterGain).toBe(0.8)
     expect(listener).not.toHaveBeenCalled()
   })
 

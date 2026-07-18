@@ -8,7 +8,7 @@ import type {
 } from '@vibraxis/shared/vdap'
 import type { TrackAnalysis } from '@vibraxis/shared/analysis'
 import { fetchTrackAnalysis, toBindingAnalysis } from '../analysis'
-import type { DeckEngine } from '../audio/DeckEngine'
+import type { DeckEngine, PreparedDeckLoad } from '../audio/DeckEngine'
 import { trackAudioUrl, type CatalogTrack } from '../catalog'
 import {
   RuntimeAudioError,
@@ -65,9 +65,10 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
         : Promise.resolve(null)
 
     let analysis: TrackAnalysis | null
+    let preparedAudio: PreparedDeckLoad | null
     try {
-      ;[, analysis] = await Promise.all([
-        this.#engine.loadUrl(params.deckId, source.uri, source.title),
+      ;[preparedAudio, analysis] = await Promise.all([
+        this.#engine.prepareUrl(params.deckId, source.uri, source.title),
         analysisPromise,
       ])
     } catch (cause) {
@@ -77,16 +78,21 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
         true,
       )
     }
-    const deck = this.#engine.snapshot().decks[params.deckId]
-    if (!deck.loaded) {
+    if (!preparedAudio || !this.#engine.isLoadCurrent(params.deckId, preparedAudio)) {
       throw audioPortError('E_LOAD_FAILED', 'Load was superseded by a newer load.', true)
     }
     if (params.requireAnalysis && !analysis) {
+      this.#engine.discardPreparedLoad(preparedAudio)
       throw audioPortError(
         'E_ANALYSIS_UNAVAILABLE',
         analysisError ?? `No analysis is available for ${source.trackId}.`,
       )
     }
+    const audioReceipt = this.#engine.commitPreparedLoad(preparedAudio)
+    if (!audioReceipt || !this.#engine.isLoadCurrent(params.deckId, audioReceipt)) {
+      throw audioPortError('E_LOAD_FAILED', 'Load was superseded by a newer load.', true)
+    }
+    const deck = this.#engine.snapshot().decks[params.deckId]
     const startSeconds = params.initialPosition?.sourceSeconds ?? 0
     if (startSeconds > 0) this.#engine.seek(params.deckId, startSeconds)
 

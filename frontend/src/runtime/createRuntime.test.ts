@@ -17,6 +17,7 @@ import { VdapClient, VdapClientError } from './VdapClient'
 
 class FakeAudioPort implements RuntimeAudioPort {
   calls: string[] = []
+  pauseResult: Promise<PositionPair> | null = null
   #bindings = 0
 
   async load(params: DeckLoadParams): Promise<AudioLoadResult> {
@@ -44,6 +45,7 @@ class FakeAudioPort implements RuntimeAudioPort {
 
   async pause(deckId: DeckId): Promise<PositionPair> {
     this.calls.push(`pause:${deckId}`)
+    if (this.pauseResult) return this.pauseResult
     return { sourceSeconds: 1, atRuntimeTime: 0 }
   }
 
@@ -163,6 +165,59 @@ describe('createRuntime golden path', () => {
       expect(state.decks.A.transport.phase).toBe('ended')
       expect(state.decks.A.playback.position.sourceSeconds).toBe(120)
       expect(state.decks.A.playback.headVelocity).toBe(0)
+    } finally {
+      ui.close()
+      runtime.dispose()
+    }
+  })
+
+  it('keeps the natural end state when an earlier pause resolves late', async () => {
+    const { audio, runtime } = testRuntime()
+    const ui = runtime.createUiClient()
+    try {
+      await ui.hello()
+      await (await ui.mutate('deck.load', {
+        deckId: 'A',
+        source: { kind: 'catalog', trackId: 'track-1' },
+      })).terminal
+      await (await ui.mutate('deck.play', { deckId: 'A' })).terminal
+
+      let resolvePause!: (position: PositionPair) => void
+      audio.pauseResult = new Promise((resolve) => { resolvePause = resolve })
+      const pause = await ui.mutate('deck.pause', { deckId: 'A' })
+      audio.endedListener?.('A', { sourceSeconds: 120, atRuntimeTime: 1 })
+      resolvePause({ sourceSeconds: 0, atRuntimeTime: 1 })
+      expect((await pause.terminal).event).toBe('intent.completed')
+
+      const state = await ui.query('state.get', {})
+      expect(state.decks.A.transport.phase).toBe('ended')
+      expect(state.decks.A.playback.position.sourceSeconds).toBe(120)
+      expect(state.decks.A.playback.headVelocity).toBe(0)
+    } finally {
+      ui.close()
+      runtime.dispose()
+    }
+  })
+
+  it('allows a new play accepted after natural end to update canonical state', async () => {
+    const { audio, runtime } = testRuntime()
+    const ui = runtime.createUiClient()
+    try {
+      await ui.hello()
+      await (await ui.mutate('deck.load', {
+        deckId: 'A',
+        source: { kind: 'catalog', trackId: 'track-1' },
+      })).terminal
+      await (await ui.mutate('deck.play', { deckId: 'A' })).terminal
+      audio.endedListener?.('A', { sourceSeconds: 120, atRuntimeTime: 1 })
+
+      const replay = await ui.mutate('deck.play', { deckId: 'A' })
+      expect((await replay.terminal).event).toBe('intent.completed')
+      const state = await ui.query('state.get', {})
+      expect(state.decks.A.transport.phase).toBe('playing')
+      expect(state.decks.A.playback.position.sourceSeconds).toBe(0)
+      expect(state.decks.A.playback.headVelocity).toBe(1)
+      expect(state.decks.A.playback.direction).toBe('forward')
     } finally {
       ui.close()
       runtime.dispose()

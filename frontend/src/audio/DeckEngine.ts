@@ -20,6 +20,14 @@ export type MixerSnapshot = {
   audioReady: boolean
 }
 
+export type DeckLoadReceipt = Readonly<{ loadGeneration: number }>
+export type PreparedDeckLoad = Readonly<{
+  deckId: DeckId
+  name: string
+  buffer: AudioBuffer
+  loadGeneration: number
+}>
+
 type DeckGraph = {
   buffer: AudioBuffer | null
   source: AudioBufferSourceNode | null
@@ -80,12 +88,22 @@ export class DeckEngine {
     this.emit()
   }
 
-  async loadFile(id: DeckId, file: File): Promise<void> {
-    await this.loadArrayBuffer(id, file.name, () => file.arrayBuffer())
+  async loadFile(id: DeckId, file: File): Promise<DeckLoadReceipt | null> {
+    const prepared = await this.prepareFile(id, file)
+    return prepared ? this.commitPreparedLoad(prepared) : null
   }
 
-  async loadUrl(id: DeckId, url: string, name: string): Promise<void> {
-    await this.loadArrayBuffer(id, name, async () => {
+  async loadUrl(id: DeckId, url: string, name: string): Promise<DeckLoadReceipt | null> {
+    const prepared = await this.prepareUrl(id, url, name)
+    return prepared ? this.commitPreparedLoad(prepared) : null
+  }
+
+  async prepareFile(id: DeckId, file: File): Promise<PreparedDeckLoad | null> {
+    return this.prepareArrayBuffer(id, file.name, () => file.arrayBuffer())
+  }
+
+  async prepareUrl(id: DeckId, url: string, name: string): Promise<PreparedDeckLoad | null> {
+    return this.prepareArrayBuffer(id, name, async () => {
       const response = await fetch(url)
       if (!response.ok) throw new Error(`音源を取得できませんでした (${response.status})`)
       return response.arrayBuffer()
@@ -98,22 +116,38 @@ export class DeckEngine {
    * successful decode; a failed or superseded load leaves the old audio,
    * name, and transport state fully intact.
    */
-  private async loadArrayBuffer(
+  private async prepareArrayBuffer(
     id: DeckId,
     name: string,
     read: () => Promise<ArrayBuffer>,
-  ): Promise<void> {
+  ): Promise<PreparedDeckLoad | null> {
     const deck = this.decks[id]
     const loadGeneration = ++deck.loadGeneration
     const data = await read()
-    if (this.disposed || deck.loadGeneration !== loadGeneration) return
+    if (this.disposed || deck.loadGeneration !== loadGeneration) return null
     const buffer = await this.context.decodeAudioData(data.slice(0))
-    if (this.disposed || deck.loadGeneration !== loadGeneration) return
-    this.stop(id)
-    deck.buffer = buffer
-    deck.name = name
+    if (this.disposed || deck.loadGeneration !== loadGeneration) return null
+    return { deckId: id, name, buffer, loadGeneration }
+  }
+
+  commitPreparedLoad(prepared: PreparedDeckLoad): DeckLoadReceipt | null {
+    const deck = this.decks[prepared.deckId]
+    if (this.disposed || deck.loadGeneration !== prepared.loadGeneration) return null
+    this.stop(prepared.deckId)
+    deck.buffer = prepared.buffer
+    deck.name = prepared.name
     deck.offset = 0
     this.emit()
+    return { loadGeneration: prepared.loadGeneration }
+  }
+
+  discardPreparedLoad(prepared: PreparedDeckLoad): void {
+    const deck = this.decks[prepared.deckId]
+    if (deck.loadGeneration === prepared.loadGeneration) deck.loadGeneration += 1
+  }
+
+  isLoadCurrent(id: DeckId, receipt: DeckLoadReceipt): boolean {
+    return !this.disposed && this.decks[id].loadGeneration === receipt.loadGeneration
   }
 
   async play(id: DeckId): Promise<void> {
