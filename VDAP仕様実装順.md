@@ -107,7 +107,7 @@ sequenceDiagram
 - [x] 順序1: デモ用JSON Schema・TypeScript型
 - [x] 順序2: 正準Runtime StoreとMessagePort縦切り
 - [x] 順序3: 透明な2デッキ音声基盤（staged load・/api/analysis・解析binding・deck.ended済み。音声経路はGAIN → 3-band EQ → crossfader → MASTER → destinationで、自動リミッターや音量補正を挟まない）
-- [ ] 順序4: 最小Beat Transition
+- [ ] 順序4: 最小Beat Transition（**実装・自動テスト完了、実音源E2E待ち**）。`transition.start`がbindingを固定してnextBarを1回だけ解決し、target playとequal-power rampを同一AudioContext時刻へ原子的に事前予約する。開始・終了はsilent marker sourceのAudioContextイベントで確定するため、context suspend中は完了しない。tempo範囲外拒否、binding変更・user override取消、rollback真偽、開始時binding保護は自動テスト済み。残件は検証済み音源2曲での±10ms実測と3回連続遷移E2Eのみ
 - [ ] 順序5: 決定論的DJロジック
 - [ ] 順序6: GPT-5.6 Intent + Codex DJ Agent Provider
 - [ ] 順序7: UI統合・E2Eデモ・録画固定（進行中: 各Deckに中央固定playheadの3バンド拡大スクロール波形と小型全曲overviewを分離し、beat/downbeat/padオーバーレイ、4/8/16/32小節ズーム、両波形からのVDAP seekを実装済み。現在の解析品質ではSECTION/CHORDを波形へ表示しない。共有`TrackTimeline`は拍/小節頭と、取得できたsection/chord-degreeの位置参照を一元化する）
@@ -166,6 +166,7 @@ P0で修正するもの:
 | `deck.play`, `deck.pause`, `deck.seek`, `deck.selectPad` | Yes | Yes | 拍に合わせたトランスポート操作 |
 | `deck.setGain`, `deck.setVelocity`, `deck.sync` | Yes | Yes | 遷移準備 |
 | `mixer.setCrossfader`, `mixer.rampCrossfader` | Yes | Yes | ミックス本体 |
+| `transition.start` | Yes | No | params内のnextBarを単一境界として原子的に予約 |
 | `deck.setTempoInterpretation`, `mixer.setMasterGain` | Yes | No | P0では即時設定のみ |
 | `deck.load`, `deck.unload` | Yes | No | ロードは事前準備であり、時刻予約しない |
 | `state.subscribe`, `state.unsubscribe` | Yes | No | 接続管理を予約しない |
@@ -311,7 +312,7 @@ frontend/src/runtime/
 
 1. 順序3で取得・検証した`beatsSeconds` / `downbeatsSeconds`をbindingから参照する。
 2. 参照デッキの位置ペアから`nextBar`のRuntime時刻を求める。
-3. Deck Bを`nextBar`で開始する。
+3. `transition.start`でDeck Bの開始とrampを同じ`nextBar`へ原子的に予約する。
 4. tempo-only syncでBのplayback rateを設定する。
 5. `mixer.rampCrossfader`を実装する。
 6. ramp完了後にAをpauseする。
@@ -329,7 +330,7 @@ frontend/src/runtime/transition/
 1. active/inactiveデッキと現在bindingを記録する。
 2. inactiveデッキのload完了を待ち、確定bindingIdを取得する。
 3. tempo syncを適用し、可動域と解析前提を確認する。
-4. 1つの`nextBar`境界を確定し、同じ境界をinactiveデッキのplayとramp開始に使う。
+4. `transition.start`を1回だけ送り、Runtimeが単一`nextBar`境界を確定してinactive playとrampを同じAudioContext時刻へ予約する。
 5. ramp成功後だけactiveデッキをpauseし、遷移完了とする。
 6. 途中失敗時は未実行Intentとautomationを取消し、inactiveデッキをpause、crossfaderをactive側へ戻し、activeデッキの旧bindingと再生を維持する。
 7. 各段階で`expectedBindingId`を再検査し、user overrideを最優先する。
@@ -347,20 +348,31 @@ type RampCrossfaderParams = {
 
 Web Audioのautomationを使い、細かな`setCrossfader`予約の連打で近似しない。
 
-フォールバック:
+境界不能・範囲外時の扱い（AGENTS §0準拠、silent fallback禁止）:
 
-- downbeat confidence不足: 次beatまたは秒指定の遷移へ低下し、UIへ表示する。
-- tempo同期が可動域外: クランプ結果を表示し、無理な同期を隠さない。
-- `tempoInterpretation != normal`: phase/bar同期は行わずtempo-onlyへ低下する。
+順序4は、利用者が指定した`when`・`duration`・同期対象を内部判断で別の値へ低下・置換しない。実行不能なら入力を変えず、明示的に拒否または失敗させる（AGENTS §0.6/§0.7）。
 
-完了条件:
+- **グリッド不能（downbeat/beat境界を確定できない）**: `noGrid` / `lowConfidence` / `notAdvancing` / `beyondGrid` のいずれかを`reason`に付し、`E_QUANTIZE_UNAVAILABLE`で拒否する。`nextBar`を自動で`nextBeat`や秒指定へ低下させてはならない。受理後に参照デッキが停止・低confidence・グリッド外になった場合も、同`reason`で`intent.failed`として終端する（§10.2）。
+  - 利用者が明示的に代替を望む場合に限り、公開済みの別入力を選べる。`when`に`onGridUnavailable:"immediate"`を指定した受理時フォールバック（完了イベントに`degraded:"immediate"`を記録）、または`duration:{seconds}`による非音楽的rampである。いずれも入力側で明示指定され、実挙動として公開される。
+- **tempo同期が可動域外**: 算出`baseVelocity`が`capabilities.velocity.{min,max}`を外れる場合、`deck.sync`は入力を変更せず`E_OUT_OF_RANGE`で拒否し、音声・storeを一切変更しない（§11.11、AGENTS §0.6/§0.7）。境界へクランプしては **MUST NOT**。TransitionExecutorはこの失敗をrollbackし、成功と偽らない。
+- **`tempoInterpretation != normal` / `tempoPhase` / `tempoBar`**: 順序4は`phaseSync`能力を宣言しないため、位相・小節同期を内部でtempo-onlyへ低下させない。`tempoPhase` / `tempoBar`は`E_CAPABILITY_REQUIRED`で拒否する。tempo-only同期のみを提供する。
+- **範囲外パラメータ**: `to`・`position`・`velocity`等の範囲外値は`E_OUT_OF_RANGE`で拒否し、暗黙にクランプしない（§11）。`deck.sync`も可動域外は同様に`E_OUT_OF_RANGE`で拒否する（クランプ例外は撤廃）。
 
-- 検証済み音源2曲でBが目標小節頭から±10ms以内に開始する。
-- 4または8小節のramp所要時間誤差が±10ms以内である。
-- automation曲線上でA gainは単調非増加、B gainは単調非減少、全点で`abs(gainA² + gainB² - 1) ≤ 0.01`を満たす。
-- ramp中のuserクロスフェーダー操作でAgent rampが取消される。
-- load成功後・sync後・play予約後・ramp中の各失敗を注入しても、未実行Intentが残らず、旧曲または安全な片側デッキの再生へ戻る。
-- 3回連続で無音・二重再生事故なく遷移できる。
+これに伴い、ランタイムは音楽的`when`と`mixer.rampCrossfader`を提供できる場合に`quantize` / `crossfaderRamp`を宣言し、さらに原子的なWeb Audio事前予約を提供できる場合だけ`beatTransition`（`atomic:true`, `toleranceSeconds`, `minimumLeadSeconds`）を宣言する。`transition.start`はこの能力がなければ`E_CAPABILITY_REQUIRED`、次境界のlead不足なら`E_SCHEDULE_TOO_SOON`で拒否する。
+
+完了条件（現状の検証範囲を明記。★=未達/未検証の残課題）:
+
+- ★ 検証済み音源2曲でBが目標小節頭から±10ms以内に開始する（Web Audio事前予約は実装済み、実音源実測は **未実施**）。
+- ★ 4または8小節のramp所要時間誤差が±10ms以内である（AudioContext同一時間軸で実装済み、実音源実測は **未実施**）。
+- playとramp開始が同一境界に原子的に確定する（`transition.start`が単一境界を1回解決し、音声ポートを1回だけ呼ぶテストで達成）。
+- AudioContext suspend中はramp/startを完了扱いにしない（wall clockだけを進めても終端せず、AudioContext marker eventでのみ開始・完了するテストで達成）。
+- automation曲線上でA gainは単調非増加、B gainは単調非減少、全点で`abs(gainA² + gainB² - 1) ≤ 0.01`を満たす（`equalPowerRampSamples`で自動検証、達成）。
+- tempo同期が可動域外なら`E_OUT_OF_RANGE`で拒否し状態・音声を変更しない（達成、`beatScheduling`/`beatMath`テストで検証）。
+- ramp中のuserクロスフェーダー操作でAgent rampが取消される（`userOverride`で`intent.cancelled`、終端`result`同梱、音声automationは現在値で停止し`to`へジャンプしない。達成）。
+- 参照デッキのbinding変更でscheduled play/rampが`bindingChanged`で終端し音声予約も取消される（finding 5、達成、`beatScheduling`テストで検証）。
+- active/inactiveデッキのpauseは開始時bindingを`expectedBindingId`で保護し、ユーザー再ロード後の曲を止めない（finding 6、達成）。
+- load成功後・sync後・play予約後・ramp中の各失敗を注入しても、未実行Intentが残らず、旧曲または安全な片側デッキの再生へ戻る。rollbackの成否は真報告し、両cleanupがterminal completedのときのみ`rolledBack:true`、失敗は`cleanupErrors`を公開する（finding 4、達成。user override時は競合させず`cancelled`として譲る）。
+- ★ 3回連続で無音・二重再生事故なく遷移できる（実AudioContext/E2E **未検証**）。
 
 ### 5.6 順序5 — 決定論的DJロジック [P1]
 

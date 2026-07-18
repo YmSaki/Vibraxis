@@ -29,6 +29,44 @@ export type AudioLoadResult = {
  */
 export type DeckGridPayload = Omit<DeckGrid, 'bindingId'>
 
+/**
+ * Scheduled equal-power crossfader automation reserved on the audio timeline.
+ * The runtime supplies absolute runtime times; the adapter converts them to its
+ * own audio clock so a single automation is queued (never a burst of setValue
+ * updates). VDAP §11.12.
+ */
+export type CrossfaderRampSpec = {
+  from: number
+  to: number
+  startAtRuntimeTime: number
+  durationSeconds: number
+  curve: 'equalPower'
+}
+
+export type BeatTransitionAudioSpec = CrossfaderRampSpec & {
+  targetDeckId: DeckId
+}
+
+export type BeatTransitionCancellation = {
+  targetPosition: PositionPair
+  holdPosition: number
+  progressedDurationSeconds: number
+}
+
+export type BeatTransitionAudioSample = BeatTransitionCancellation
+
+/**
+ * Receipt for one atomic audio-timeline reservation. These promises are driven
+ * by AudioContext events, not the wall clock, so a suspended context cannot
+ * falsely complete a transition.
+ */
+export type BeatTransitionAudioReservation = {
+  started: Promise<PositionPair>
+  completed: Promise<{ endedAtRuntimeTime: number; targetPosition: PositionPair }>
+  sample(): BeatTransitionAudioSample
+  cancel(holdPositionOverride?: number): BeatTransitionCancellation
+}
+
 /** Audio side effects injected into CommandDispatcher. */
 export interface RuntimeAudioPort {
   load(params: DeckLoadParams): Promise<AudioLoadResult>
@@ -50,6 +88,28 @@ export interface RuntimeAudioPort {
    * grid into every runtime snapshot.
    */
   getGrid?(bindingId: BindingId): DeckGridPayload | null
+  /**
+   * Optional (beat profile): starts a deck at an absolute runtime time by
+   * queuing the source on the audio timeline, so a `nextBar` start lands within
+   * the declared quantize tolerance. Resolves once the start is scheduled.
+   */
+  playAt?(deckId: DeckId, atRuntimeTime: number): Promise<PositionPair>
+  /**
+   * Optional (beat profile): queues one equal-power crossfader automation. The
+   * runtime samples reported base/effective from the ramp math; the adapter owns
+   * only the audio-timeline curve.
+   */
+  scheduleCrossfaderRamp?(spec: CrossfaderRampSpec): Promise<void>
+  /**
+   * Optional (beat profile): cancels the in-flight crossfader automation and
+   * holds the crossfader at `holdPosition` (the sampled current value). Never
+   * jumps to the ramp target. VDAP §11.12.
+   */
+  stopCrossfaderRamp?(holdPosition: number): Promise<void>
+  /** Minimum future lead required for an atomic Web Audio reservation. */
+  readonly minimumTransitionLeadSeconds?: number
+  /** Atomically queues target playback and the crossfader ramp at one time. */
+  scheduleBeatTransition?(spec: BeatTransitionAudioSpec): Promise<BeatTransitionAudioReservation>
 }
 
 export class RuntimeAudioError extends Error {

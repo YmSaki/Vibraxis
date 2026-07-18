@@ -20,6 +20,9 @@ import {
   RuntimeAudioError,
   type AudioLoadResult,
   type AudioSeekRequest,
+  type BeatTransitionAudioReservation,
+  type BeatTransitionAudioSpec,
+  type CrossfaderRampSpec,
   type DeckGridPayload,
   type RuntimeAudioPort,
 } from './RuntimeAudioPort'
@@ -42,6 +45,7 @@ export type DeckEngineAudioPortOptions = {
  * instead of guessing.
  */
 export class DeckEngineAudioPort implements RuntimeAudioPort {
+  readonly minimumTransitionLeadSeconds = 0.05
   readonly #engine: DeckEngine
   readonly #resolveTrack: TrackResolver
   readonly #now: () => number
@@ -208,6 +212,91 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
       )
     }
     return this.position(deckId)
+  }
+
+  async playAt(deckId: DeckId, atRuntimeTime: number): Promise<PositionPair> {
+    const delaySeconds = atRuntimeTime - this.#now()
+    try {
+      await this.#engine.playAt(deckId, delaySeconds)
+    } catch (cause) {
+      throw audioPortError(
+        'E_AUDIO_LOCKED',
+        cause instanceof Error ? cause.message : 'AudioContext could not be resumed.',
+        true,
+      )
+    }
+    return this.position(deckId)
+  }
+
+  async scheduleCrossfaderRamp(spec: CrossfaderRampSpec): Promise<void> {
+    const startDelaySeconds = spec.startAtRuntimeTime - this.#now()
+    this.#engine.scheduleCrossfaderRamp(spec.from, spec.to, startDelaySeconds, spec.durationSeconds)
+  }
+
+  async stopCrossfaderRamp(holdPosition: number): Promise<void> {
+    this.#engine.stopCrossfaderRamp(holdPosition)
+  }
+
+  async scheduleBeatTransition(spec: BeatTransitionAudioSpec): Promise<BeatTransitionAudioReservation> {
+    try {
+      await this.#engine.resume()
+    } catch (cause) {
+      throw audioPortError(
+        'E_AUDIO_LOCKED',
+        cause instanceof Error ? cause.message : 'AudioContext could not be resumed.',
+        true,
+      )
+    }
+    const runtimeNow = this.#now()
+    const delaySeconds = spec.startAtRuntimeTime - runtimeNow
+    if (!Number.isFinite(delaySeconds) || delaySeconds < this.minimumTransitionLeadSeconds) {
+      throw audioPortError(
+        'E_SCHEDULE_TOO_SOON',
+        `Beat transition requires at least ${this.minimumTransitionLeadSeconds} seconds of scheduling lead.`,
+        true,
+      )
+    }
+    let reservation
+    try {
+      reservation = this.#engine.scheduleBeatTransitionAtAudioTime(
+        spec.targetDeckId,
+        this.#engine.audioTime + delaySeconds,
+        spec.durationSeconds,
+        spec.from,
+        spec.to,
+      )
+    } catch (cause) {
+      throw audioPortError(
+        'E_INTERNAL',
+        cause instanceof Error ? cause.message : 'Failed to reserve the beat transition.',
+      )
+    }
+    return {
+      started: reservation.started.then(() => this.position(spec.targetDeckId)),
+      completed: reservation.completed.then(() => ({
+        endedAtRuntimeTime: this.#now(),
+        targetPosition: this.position(spec.targetDeckId),
+      })),
+      sample: () => {
+        const sampled = reservation.sample()
+        return {
+          targetPosition: { sourceSeconds: sampled.targetPosition, atRuntimeTime: this.#now() },
+          holdPosition: sampled.holdPosition,
+          progressedDurationSeconds: sampled.progressedDurationSeconds,
+        }
+      },
+      cancel: (holdPositionOverride) => {
+        const cancelled = reservation.cancel(holdPositionOverride)
+        return {
+          targetPosition: {
+            sourceSeconds: cancelled.targetPosition,
+            atRuntimeTime: this.#now(),
+          },
+          holdPosition: cancelled.holdPosition,
+          progressedDurationSeconds: cancelled.progressedDurationSeconds,
+        }
+      },
+    }
   }
 
   async pause(deckId: DeckId): Promise<PositionPair> {

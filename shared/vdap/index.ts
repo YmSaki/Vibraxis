@@ -41,6 +41,7 @@ export const VDAP_ERROR_CODES = [
   'E_ANALYSIS_UNAVAILABLE',
   'E_QUANTIZE_UNAVAILABLE',
   'E_SCHEDULE_IN_PAST',
+  'E_SCHEDULE_TOO_SOON',
   'E_HORIZON_EXCEEDED',
   'E_AUDIO_LOCKED',
   'E_LOAD_FAILED',
@@ -201,6 +202,24 @@ export type RampCrossfaderParams = RampCrossfaderBaseParams &
   )
 export type MixerSetMasterGainParams = { gain: number }
 
+/**
+ * One atomic beat-transition reservation. Both bindings are explicit so a
+ * later deck replacement cannot redirect the reservation to different audio.
+ */
+export type TransitionStartParams = {
+  activeDeckId: DeckId
+  activeBindingId: BindingId
+  targetDeckId: DeckId
+  targetBindingId: BindingId
+  at: 'nextBar'
+  minConfidence?: number
+  crossfader: {
+    to: number
+    duration: { bars: number }
+    curve: 'equalPower'
+  }
+}
+
 export type ScheduleCancelFilter =
   | { intentId: IntentId; deckId?: never; domain?: never; all?: never }
   | { deckId: DeckId; domain?: IntentDomain; intentId?: never; all?: never }
@@ -302,6 +321,11 @@ export type MixerSetMasterGainRequest = MutationRequest<
   MixerSetMasterGainParams,
   ImmediateWhen
 >
+export type TransitionStartRequest = MutationRequest<
+  'transition.start',
+  TransitionStartParams,
+  ImmediateWhen
+>
 export type ScheduleCancelRequest = MutationRequest<
   'schedule.cancel',
   ScheduleCancelParams,
@@ -335,6 +359,7 @@ export type VdapRequest =
   | MixerSetCrossfaderRequest
   | MixerRampCrossfaderRequest
   | MixerSetMasterGainRequest
+  | TransitionStartRequest
   | ScheduleCancelRequest
   | RuntimePanicRequest
 
@@ -346,7 +371,14 @@ export type RequestFor<C extends VdapCommand> = Extract<VdapRequest, { command: 
 export type VelocityCapability = { min: number; max: number; reverse: boolean }
 export type QuantizeCapability = {
   units: Array<'beat' | 'bar'>
-  toleranceSeconds: number
+  /**
+   * Bounded execution tolerance (VDAP §10.5). Optional and only present when the
+   * runtime can actually substantiate the bound. The 順序4 beat-profile slice
+   * schedules on a main-thread timer without WebAudio ahead-of-boundary
+   * pre-reservation, so it does NOT yet declare a tolerance (finding 7): omit
+   * rather than advertise a 10 ms bound the implementation cannot guarantee.
+   */
+  toleranceSeconds?: number
 }
 export type VdapCapabilities = {
   velocity?: VelocityCapability
@@ -356,6 +388,14 @@ export type VdapCapabilities = {
   crossfaderRamp?: {
     curves: Array<'equalPower'>
     durationUnits: Array<'seconds' | 'beats' | 'bars'>
+  }
+  /** Atomic target-deck start + equal-power ramp on one resolved bar boundary. */
+  beatTransition?: {
+    atomic: true
+    startUnits: ['bar']
+    durationUnits: ['bars']
+    toleranceSeconds: number
+    minimumLeadSeconds: number
   }
   padEdit?: Record<string, never>
 }
@@ -623,6 +663,12 @@ export type RampCrossfaderResult = {
   durationSeconds: number
 }
 
+export type TransitionStartResult = RampCrossfaderResult & {
+  targetDeckId: DeckId
+  targetBindingId: BindingId
+  targetPosition: PositionPair
+}
+
 export type LoadResult = { binding: TrackBinding }
 export type SeekResult = { position: PositionPair }
 export type SyncResult = {
@@ -635,6 +681,7 @@ export type SyncResult = {
 export type ScheduleCancelResult = { cancelledCount: number; skippedCount: number }
 export type CommandResult =
   | RampCrossfaderResult
+  | TransitionStartResult
   | LoadResult
   | SeekResult
   | SyncResult

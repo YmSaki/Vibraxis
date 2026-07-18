@@ -136,8 +136,9 @@ VDAP はメッセージ指向であり、順序保証のある全二重チャネ
 | 能力名 | パラメータ | 意味 |
 |---|---|---|
 | `velocity` | `{min, max, reverse}` | baseVelocity/configuredVelocity の可動域。ハッカソン core/beat は `reverse:false` |
-| `quantize` | `{units:["beat","bar"], toleranceSeconds}` | 音楽的スケジューリング対応。`toleranceSeconds` は実行時刻保証(§10.5) |
+| `quantize` | `{units:["beat","bar"], toleranceSeconds?}` | 音楽的スケジューリング対応。`toleranceSeconds` は宣言時だけ実行時刻保証(§10.5) |
 | `crossfaderRamp` | `{curves:["equalPower"], durationUnits:["seconds","beats","bars"]}` | `mixer.rampCrossfader` 対応。beat プロファイルでは MUST |
+| `beatTransition` | `{atomic:true,startUnits:["bar"],durationUnits:["bars"],toleranceSeconds,minimumLeadSeconds}` | `transition.start`による単一境界・Web Audio原子的事前予約対応 |
 | `phaseSync` | `{}` | `deck.sync` の `tempoPhase` / `tempoBar` モード対応 |
 | `grid` | `{source:"analysis"}` | `deck.getGrid` によるビートグリッド全量取得対応 |
 | `override` | `{targets:["velocity","gate","crossfader"]}` | 一時オーバーライド(§15)対応 |
@@ -443,6 +444,7 @@ effectiveBpm       = interpretedBpm × configuredVelocity
 | `schedule.cancel`, `runtime.panic` | Yes | No | 取消・緊急停止は即時のみ |
 | `deck.setPad`, `deck.clearPad` | Yes | No | 状態編集は予約不可 |
 | `deck.setTempoInterpretation`, `mixer.setMasterGain` | Yes | No | P0では即時のみ |
+| `transition.start` | Yes | No | params内の`at:"nextBar"`を1回解決する原子的複合予約。envelopeの`when`は不可 |
 
 ハッカソン P0 の beat 適合に必須なのは `immediate` / `nextBeat` / `nextBar` だけである。`beats` / `bars` / `runtimeTime` / `sourcePosition` の形式と既存の安全規則は後方互換のため本節に維持するが、追加対応を capability で宣言した実装だけが受理してよい。コマンド allowlist 自体は形式にかかわらず同じである。scratch 拡張コマンドの allowlist は §15.3 に閉じ、本 P0 の適合対象に含めない。
 
@@ -503,11 +505,11 @@ targetRuntimeTime = atRuntimeTime + (s* − sourceSeconds) / headVelocity
 
 ### 10.5 実行精度
 
-`quantize` 能力を宣言するランタイムは、音楽的/絶対時刻スケジュールの実行を `targetRuntimeTime ± toleranceSeconds` 内で **MUST** 行う。`toleranceSeconds` は 0.010 以下を **SHOULD** とする(WebAudio のノード事前スケジューリングで達成する)。core プロファイルはこの保証を負わない(即時のみ)。
+`quantize` 能力に `toleranceSeconds` を **宣言する** ランタイムは、音楽的/絶対時刻スケジュールの実行を `targetRuntimeTime ± toleranceSeconds` 内で **MUST** 行う。宣言する場合 `toleranceSeconds` は 0.010 以下を **SHOULD** とし、WebAudio のノード事前スケジューリング(境界より前にタイムラインへ予約)で達成する。実挙動として境界内実行を保証できないランタイムは `toleranceSeconds` を **宣言しては MUST NOT** ならない(省略する。実装以上の精度を宣言しない — AGENTS §0.9/§0.10)。エージェントは `toleranceSeconds` 未宣言を「境界許容は未保証」と解釈する。core プロファイルはこの保証を負わない(即時のみ)。
 
 ## 11. コマンド
 
-各コマンドの共通事項: デッキ対象コマンドは `params.deckId` を **MUST** 持つ。範囲外の連続値パラメータは **拒否**(`E_OUT_OF_RANGE`)であり、暗黙のクランプをしては **MUST NOT** ならない(クランプはエージェントのバグを隠す。例外: `deck.sync` §11.11 は性質上クランプし `exact` で報告する)。
+各コマンドの共通事項: デッキ対象コマンドは `params.deckId` を **MUST** 持つ。範囲外の連続値パラメータは **拒否**(`E_OUT_OF_RANGE`)であり、暗黙のクランプをしては **MUST NOT** ならない(クランプはエージェントのバグを隠す)。`deck.sync`(§11.11)も算出速度が可動域外なら例外なく `E_OUT_OF_RANGE` で拒否し、クランプしない。
 
 ### 11.1 `session.hello`(クエリ)
 
@@ -609,7 +611,7 @@ result は「グリッド全量」をそのまま返すため、上記の必須�
 
 | `mode` | 必要能力 | 規範挙動 |
 |---|---|---|
-| `"tempo"` | — | `targetBpm = 基準側 effectiveBpm` とし、追従側 `baseVelocity = targetBpm / 追従側 interpretedBpm` を設定する。可動域を超える場合は境界へ **クランプ** し、結果に `exact:false` と `requestedVelocity` を **MUST** 含める |
+| `"tempo"` | — | `targetBpm = 基準側 effectiveBpm` とし、追従側 `baseVelocity = targetBpm / 追従側 interpretedBpm` を設定する。算出速度が可動域 `capabilities.velocity.{min,max}` を外れる場合は、入力を変更せず `E_OUT_OF_RANGE` で **拒否** し、状態・音声を一切変更しては **MUST NOT** ならない(AGENTS §0.6/§0.7)。境界へ **クランプしては MUST NOT** ならない。完了する場合 `appliedVelocity == requestedVelocity` かつ `exact:true` であり、`requestedVelocity` を **MUST** 含める |
 | `"tempoPhase"` | `phaseSync` | tempo に加え、追従側のビート位相を基準側に整列する。完了後の位相誤差は 25 ms 以下 **MUST**、10 ms 以下 **SHOULD**。整列手段(微小シーク/一時的ナッジ)は実装自由だが、完了後の baseVelocity は tempo モードの値に一致しなければならない(位相合わせの速度変化を残しては **MUST NOT** ならない) |
 | `"tempoBar"` | `phaseSync` | tempoPhase に加え、`beatInBar` も一致させる(ダウンビート整列) |
 
@@ -638,6 +640,26 @@ result は「グリッド全量」をそのまま返すため、上記の必須�
 - 音声パラメータはオーディオ時間軸上で連続更新してよい。正準状態の `base` / `effective` は delta・snapshot 生成時点で sampling した値であり、オーディオ量子ごとの revision 増加を要求しない。ただし開始・取消・失敗・完了は必ず revision を進める。
 - 競合ドメインは mixer `crossfader`。origin `"user"` の `mixer.setCrossfader` が受理された場合、同ドメインの待機中・実行中 agent ramp を `intent.cancelled`(`reason:"userOverride"`)で終端し、音声 automation を取り消してから、ユーザー指定の手動値を `base` / `effective` に採用し、`automation:null` とする。途中の予定値や `to` へジャンプしては **MUST NOT** ならない。
 - ramp は完了時に `intent.completed`、user 操作・panic・`schedule.cancel`・切断時に `intent.cancelled`、参照条件喪失または音声 automation 失敗時に `intent.failed` となる。いずれも ramp の論理終端は1回だけで、終端時の `result` に `{from, to, startedAtRuntimeTime, endedAtRuntimeTime, durationSeconds}` を含める。開始前に取消された場合は `startedAtRuntimeTime:null`, `durationSeconds:0` とする。正常完了では `base:to`, `effective:to`, `automation:null` を同一 revision で確定する。
+
+#### 11.12.1 `transition.start`
+
+`transition.start`は、準備済みinactiveデッキの再生開始とequal-power rampを**1つのIntent・1つの確定境界・1回の音声予約**として実行するbeatゴールデンパスである。`beatTransition`能力が必須で、envelopeの`when`は`immediate`のみとし、音楽的開始条件はparamsに明示する。
+
+```json
+{
+  "activeDeckId":"A", "activeBindingId":"bind-A",
+  "targetDeckId":"B", "targetBindingId":"bind-B",
+  "at":"nextBar", "minConfidence":0.7,
+  "crossfader":{"to":1,"duration":{"bars":4},"curve":"equalPower"}
+}
+```
+
+- 両bindingIdは受理時から終端まで固定する。どちらかが変化した場合は`bindingChanged`で取消し、新bindingのgridや音声へ予約を移してはならない。
+- Runtimeはactive bindingの検証済みdownbeat gridから次境界を**1回だけ**求め、target AudioBufferSourceと両crossfade AudioParam curveを同じAudioContext時刻へ同期的に予約する。個別の`deck.play`と`mixer.rampCrossfader`へ展開してはならない。
+- 次境界までのleadが能力の`minimumLeadSeconds`未満なら、入力を次小節や即時へ変更せず`E_SCHEDULE_TOO_SOON`で拒否する。
+- 開始・完了はAudioContext時間軸上のイベントで確定する。performance clockのtimerだけで`executing`/`completed`へ進めてはならず、AudioContext suspend中は終端しない。
+- userのcrossfader/対象deck操作、panic、client cancelは1つの音声予約を取り消す。実行中は現在のaudio-time位置でtargetをpauseし、crossfaderを保持する。`to`へジャンプしてはならない。
+- 正常結果はramp結果に`targetDeckId`, `targetBindingId`, `targetPosition`を加える。完了後のactive pauseは別コマンドであり、開始時`activeBindingId`を`expectedBindingId`として再検査する。
 
 ### 11.13 `schedule.cancel`
 
@@ -745,6 +767,7 @@ result は「グリッド全量」をそのまま返すため、上記の必須�
 | `E_ANALYSIS_UNAVAILABLE` | false | 解析が必要な操作で解析なし/取得不能 |
 | `E_QUANTIZE_UNAVAILABLE` | false* | §10.2。`reason` 同梱 |
 | `E_SCHEDULE_IN_PAST` | false | 過去の runtimeTime、通過済み/飛び越し済み sourcePosition。`reason` は該当時に `"alreadyPassed"` / `"positionSkipped"` |
+| `E_SCHEDULE_TOO_SOON` | true | 宣言された音声事前予約leadを次境界が満たさない。入力を次境界へ繰り延べず再要求を待つ |
 | `E_HORIZON_EXCEEDED` | false | 予約可能範囲超過 |
 | `E_AUDIO_LOCKED` | true | AudioContext 未解放(ユーザー操作待ち)。ユーザー操作後に再試行可 |
 | `E_LOAD_FAILED` | true | 取得・デコード・ハッシュ不一致 |
@@ -815,6 +838,7 @@ result は「グリッド全量」をそのまま返すため、上記の必須�
 | `schedule.cancel` | MUST(scheduled Intent) | MUST(scheduled + 実行中automation) | MUST |
 | `runtime.panic` | MUST | MUST | MUST |
 | `mixer.rampCrossfader` | MUST NOT | MUST (`crossfaderRamp` 能力) | MUST |
+| `transition.start` | MUST NOT | `beatTransition`能力宣言時MUST | 同左 |
 | velocity 範囲 | `{min:0.5, max:1.5, reverse:false}` | 同左(拡大 MAY) | `reverse:true`(例 `{min:-4, max:4}`) |
 | 実行精度保証 (§10.5) | なし(即時のみ) | MUST(±10 ms SHOULD) | MUST |
 | オーバーライド/ジェスチャー (§15) | MUST NOT(能力非宣言) | MUST NOT | MUST |
@@ -840,7 +864,7 @@ core は現行 `DeckEngine` の上にアダプター層(トップレベル Inten
 | G4 | `barIndex` 0 の原点は `downbeatsSeconds[0]` (§8.3) | カタログのセクションは `startSeconds:0.0` に `startBar:0` を与えており、bar 0 の開始(1.312 s)と矛盾。ピックアップ領域の扱い(barIndex −1)が未定義のまま流通している |
 | G5 | 音声と解析は同一実体に結合 (§11.4-4) | 解析レコードに sha256 はあるが、ロード経路でファイル実体との照合をしていない |
 | G6 | 範囲外パラメータは拒否 (§11) | `DeckEngine` は gain/rate/crossfader を黙ってクランプする(UI 直結では妥当だが、プロトコル境界では隠蔽になる) |
-| G7 | テンポ同期のクランプは結果で報告 (§11.11) | `calculateTempoSync` は `exact` を返すが通知は UI バナー止まりで、機械可読な結果契約がない |
+| G7 | テンポ同期が可動域外なら拒否 (§11.11、AGENTS §0.6) | 旧 `calculateTempoSync` は速度を黙ってクランプして再生へ適用しており、入力意味を保存しない(可動域外は `E_OUT_OF_RANGE` で拒否すべき) |
 | G8 | 位置は位置ペアで配信 (§8.5) | 100 ms の `setInterval` によるスナップショット連打で位置を配っており、外挿契約がない |
 | G9 | 新ロードの準備中も旧 binding と再生を保持し、成功時だけ交換する (§9.2, §11.4) | `DeckEngine.loadArrayBuffer` はロード開始時に現在のソースを停止して `buffer=null` とするため、別バッファへの事前デコードと commit 時交換ができない |
 | G10 | base/configured/head velocity と停止中 BPM を分離する (§8.5, §9.3) | 現行 UI/Engine は playbackRate と transport 状態から表示値・実ヘッド速度を明確に分離していない |
@@ -886,7 +910,7 @@ core は現行 `DeckEngine` の上にアダプター層(トップレベル Inten
 | T11 | §11.11 | `tempoPhase` 同期 | baseVelocity が tempo 値、位相誤差 ≤ 25 ms | beat+ |
 | T12 | §11.12, §12.5 | agent の crossfader ramp 待機中/実行中に user が crossfader 操作 | ramp は `intent.cancelled (userOverride)` の1終端。automationを止め、ユーザー値をbase/effectiveへ採用 | beat+ |
 | T13 | §11.14 | 再生・予約多数の状態で panic | ≤ 50 ms 目標で全停止、全予約 cancelled、binding/gain 保持 | 全 |
-| T14 | §11.11 | 可動域外の tempo 同期 | クランプ + `exact:false` + `requestedVelocity` | 全 |
+| T14 | §11.11 | 可動域外の tempo 同期 | `E_OUT_OF_RANGE`、状態・音声不変(クランプしない) | 全 |
 | T15 | §11 | 範囲外 gain/velocity | `E_OUT_OF_RANGE`、状態不変 | 全 |
 | T16 | §11.10, §15 | 負 velocity を core/beat へ送信 | `E_OUT_OF_RANGE`、状態不変(逆再生を偽装しない) | core/beat |
 | T17 | §15 | ジェスチャー実行と解除後の速度 | 実行中 effective が包絡線 × base、解除後 = 最新 base | scratch |
@@ -1142,8 +1166,8 @@ core は現行 `DeckEngine` の上にアダプター層(トップレベル Inten
 ### 21.3 コマンド一覧(参照)
 
 クエリ: `session.hello`, `state.get`, `deck.getGrid`
-ミューテーション: `state.subscribe`, `state.unsubscribe`, `deck.load`, `deck.unload`, `deck.play`, `deck.pause`, `deck.seek`, `deck.selectPad`, `deck.setPad`*, `deck.clearPad`*, `deck.setGain`, `deck.setEq`, `deck.setVelocity`, `deck.setTempoInterpretation`, `deck.sync`, `mixer.setCrossfader`, `mixer.rampCrossfader`‡, `mixer.setMasterGain`, `schedule.cancel`, `runtime.panic`, `deck.applyGesture`†, `deck.releaseOverrides`†
-(* = `padEdit` 能力、‡ = beat `crossfaderRamp` 能力、† = scratch プロファイル)
+ミューテーション: `state.subscribe`, `state.unsubscribe`, `deck.load`, `deck.unload`, `deck.play`, `deck.pause`, `deck.seek`, `deck.selectPad`, `deck.setPad`*, `deck.clearPad`*, `deck.setGain`, `deck.setEq`, `deck.setVelocity`, `deck.setTempoInterpretation`, `deck.sync`, `mixer.setCrossfader`, `mixer.rampCrossfader`‡, `mixer.setMasterGain`, `transition.start`§, `schedule.cancel`, `runtime.panic`, `deck.applyGesture`†, `deck.releaseOverrides`†
+(* = `padEdit` 能力、‡ = beat `crossfaderRamp` 能力、§ = `beatTransition`能力、† = scratch プロファイル)
 
 ---
 

@@ -55,7 +55,7 @@ export function createRuntime(options: CreateRuntimeOptions = {}): VibraxisRunti
       resolveTrack: options.resolveTrack as TrackResolver,
       now,
     })
-  const dispatcher = new CommandDispatcher({ store, audio, runtime: options.runtime })
+  const dispatcher = new CommandDispatcher({ store, audio, runtime: options.runtime, now })
   const transport = new MessagePortTransport(dispatcher.handle)
 
   const unsubscribe = store.subscribe(() => {

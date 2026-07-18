@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vibraxis.local/schemas/vdap/transition-start.schema.json",
+  "title": "VDAP beat transition.start request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["vdap", "kind", "requestId", "command", "params"],
+  "properties": {
+    "vdap": {"const": "1.0"},
+    "kind": {"const": "request"},
+    "requestId": {"type": "string", "minLength": 1},
+    "command": {"const": "transition.start"},
+    "expectedRevision": {"type": "integer", "minimum": 1},
+    "when": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at"],
+      "properties": {"at": {"const": "immediate"}}
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activeDeckId", "activeBindingId", "targetDeckId", "targetBindingId",
+        "at", "crossfader"
+      ],
+      "properties": {
+        "activeDeckId": {"enum": ["A", "B"]},
+        "activeBindingId": {"type": "string", "minLength": 1},
+        "targetDeckId": {"enum": ["A", "B"]},
+        "targetBindingId": {"type": "string", "minLength": 1},
+        "at": {"const": "nextBar"},
+        "minConfidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "crossfader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["to", "duration", "curve"],
+          "properties": {
+            "to": {"type": "number", "minimum": -1, "maximum": 1},
+            "duration": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["bars"],
+              "properties": {"bars": {"type": "integer", "minimum": 1}}
+            },
+            "curve": {"const": "equalPower"}
+          }
+        }
+      }
+    }
+  }
+}

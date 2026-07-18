@@ -4,9 +4,16 @@ import { DeckEngine } from './DeckEngine'
 
 class FakeParam {
   value = 1
+  curves: Array<{ values: Float32Array; start: number; duration: number }> = []
 
   setTargetAtTime(value: number): void {
     this.value = value
+  }
+  cancelScheduledValues(): void {}
+  cancelAndHoldAtTime(): void {}
+  setValueAtTime(value: number): void { this.value = value }
+  setValueCurveAtTime(values: Float32Array, start: number, duration: number): void {
+    this.curves.push({ values, start, duration })
   }
 }
 
@@ -16,6 +23,7 @@ class FakeGain {
   connect(target: unknown): void {
     this.connections.push(target)
   }
+  disconnect(): void { this.connections = [] }
 }
 
 class FakeBiquad {
@@ -32,15 +40,18 @@ class FakeSource {
   onended: (() => void) | null = null
   disconnected = false
   startOffset: number | null = null
+  startWhen: number | null = null
+  stopWhen: number | null = null
 
   constructor(private readonly context: FakeContext) {}
 
   connect(): void {}
-  start(_when: number, offset: number): void {
+  start(when: number, offset: number): void {
     if (this.context.startError) throw this.context.startError
     this.startOffset = offset
+    this.startWhen = when
   }
-  stop(): void {}
+  stop(when?: number): void { this.stopWhen = when ?? this.context.currentTime }
   disconnect(): void {
     this.disconnected = true
   }
@@ -339,5 +350,76 @@ describe('DeckEngine mixer routing', () => {
     const deck = engine.snapshot().decks.A
     expect(deck.loaded).toBe(true)
     expect(deck.name).toBe('old.mp3')
+  })
+
+  it('rejects past scheduled starts instead of changing them to immediate', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('B', fakeFile('target.mp3'))
+    await expect(engine.playAt('B', -0.001)).rejects.toThrow('must not be in the past')
+    expect(() => engine.scheduleCrossfaderRamp(0, 1, -0.001, 4)).toThrow('must not be in the past')
+    expect(engine.snapshot().decks.B.playing).toBe(false)
+  })
+
+  it('queues target playback and both gain curves on one AudioContext timestamp', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('B', fakeFile('target.mp3'))
+    context.currentTime = 1
+
+    const reservation = engine.scheduleBeatTransitionAtAudioTime('B', 2, 8, -1, 1)
+    expect(context.sources).toHaveLength(3)
+    expect(context.sources.map((source) => source.startWhen)).toEqual([2, 2, 10])
+    expect(context.gains[2].gain.curves[0]).toMatchObject({ start: 2, duration: 8 })
+    expect(context.gains[4].gain.curves[0]).toMatchObject({ start: 2, duration: 8 })
+
+    let started = false
+    let completed = false
+    void reservation.started.then(() => { started = true })
+    void reservation.completed.then(() => { completed = true })
+    context.currentTime = 100 // wall/audio value alone is not a completion signal
+    await Promise.resolve()
+    expect(started).toBe(false)
+    expect(completed).toBe(false)
+    context.sources[1].onended?.()
+    await Promise.resolve()
+    expect(started).toBe(true)
+    expect(completed).toBe(false)
+    context.sources[2].onended?.()
+    await Promise.resolve()
+    expect(completed).toBe(true)
+  })
+
+  it('cancels a pre-reserved transition and holds its current audio-time position', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('B', fakeFile('target.mp3'))
+    context.currentTime = 1
+    const reservation = engine.scheduleBeatTransitionAtAudioTime('B', 2, 8, -1, 1)
+    // Attach rejection handlers before cancellation so the test also proves the
+    // cancellation is an observed terminal for both marker promises.
+    const started = reservation.started.catch((cause: Error) => cause.message)
+    const completed = reservation.completed.catch((cause: Error) => cause.message)
+    context.currentTime = 6
+    const result = reservation.cancel()
+
+    expect(result).toMatchObject({ holdPosition: 0, progressedDurationSeconds: 4 })
+    expect(engine.snapshot().decks.B.playing).toBe(false)
+    await expect(started).resolves.toContain('cancelled')
+    await expect(completed).resolves.toContain('cancelled')
+  })
+
+  it('preserves an explicit user hold value when cancelling before start', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('B', fakeFile('target.mp3'))
+    context.currentTime = 1
+    const reservation = engine.scheduleBeatTransitionAtAudioTime('B', 2, 8, -1, 1)
+    void reservation.started.catch(() => undefined)
+    void reservation.completed.catch(() => undefined)
+
+    const result = reservation.cancel(-0.25)
+    expect(result.holdPosition).toBe(-0.25)
+    expect(engine.snapshot().crossfader).toBe(-0.25)
   })
 })

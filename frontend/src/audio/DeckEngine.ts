@@ -31,6 +31,13 @@ export type PreparedDeckLoad = Readonly<{
   loadGeneration: number
 }>
 
+export type DeckEngineBeatTransitionReservation = {
+  started: Promise<void>
+  completed: Promise<void>
+  sample(): { targetPosition: number; holdPosition: number; progressedDurationSeconds: number }
+  cancel(holdPositionOverride?: number): { targetPosition: number; holdPosition: number; progressedDurationSeconds: number }
+}
+
 type DeckGraph = {
   buffer: AudioBuffer | null
   source: AudioBufferSourceNode | null
@@ -80,6 +87,11 @@ export class DeckEngine {
     if (this.context.state !== 'running') await this.context.resume()
     this.startTicker()
     this.emit()
+  }
+
+  /** Current AudioContext time; used only to map an already-validated runtime time. */
+  get audioTime(): number {
+    return this.context.currentTime
   }
 
   async loadFile(id: DeckId, file: File): Promise<DeckLoadReceipt | null> {
@@ -155,6 +167,23 @@ export class DeckEngine {
   }
 
   async play(id: DeckId): Promise<void> {
+    await this.startDeck(id, 0)
+  }
+
+  /**
+   * Starts a deck `delaySeconds` in the future on the audio timeline. A small
+   * positive delay lets a `nextBar` transport reservation land on the musical
+   * boundary within the WebAudio scheduling tolerance instead of firing on the
+   * (coarser) main-thread timer tick.
+   */
+  async playAt(id: DeckId, delaySeconds: number): Promise<void> {
+    if (!Number.isFinite(delaySeconds) || delaySeconds < 0) {
+      throw new RangeError('Scheduled play time must not be in the past.')
+    }
+    await this.startDeck(id, delaySeconds)
+  }
+
+  private async startDeck(id: DeckId, delaySeconds: number): Promise<void> {
     const deck = this.decks[id]
     if (!deck.buffer || deck.playing || deck.starting) return
     deck.starting = true
@@ -185,9 +214,9 @@ export class DeckEngine {
       this.endedListeners.forEach((listener) => listener(id, finalPosition))
     }
     const startOffset = deck.offset
-    const startedAt = this.context.currentTime
+    const startedAt = this.context.currentTime + delaySeconds
     try {
-      source.start(0, startOffset)
+      source.start(startedAt, startOffset)
     } catch (error) {
       source.onended = null
       source.disconnect()
@@ -276,6 +305,221 @@ export class DeckEngine {
     this.crossfader = value
     this.crossfaderCurve = curve
     this.applyCrossfader()
+    this.emit()
+  }
+
+  /**
+   * Queues one equal-power crossfader automation on the audio timeline. Both
+   * deck crossfade gains follow the same linearly-interpolated position curve,
+   * so gainA²+gainB²≈1 holds throughout. The internal crossfader field is
+   * advanced to `to`; a later manual setCrossfader overwrites it verbatim.
+   */
+  scheduleCrossfaderRamp(from: number, to: number, startDelaySeconds: number, durationSeconds: number): void {
+    assertInRange(from, -1, 1, 'Crossfader ramp start')
+    assertInRange(to, -1, 1, 'Crossfader ramp target')
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      throw new RangeError('Crossfader ramp duration must be a positive finite number.')
+    }
+    const steps = 128
+    const curveA = new Float32Array(steps + 1)
+    const curveB = new Float32Array(steps + 1)
+    for (let index = 0; index <= steps; index += 1) {
+      const position = from + (to - from) * (index / steps)
+      const gains = equalPowerGains(position)
+      curveA[index] = gains.a
+      curveB[index] = gains.b
+    }
+    if (!Number.isFinite(startDelaySeconds) || startDelaySeconds < 0) {
+      throw new RangeError('Crossfader ramp start must not be in the past.')
+    }
+    const startAt = this.context.currentTime + startDelaySeconds
+    for (const [deck, curve] of [
+      [this.decks.A, curveA],
+      [this.decks.B, curveB],
+    ] as const) {
+      deck.crossfadeGain.gain.cancelScheduledValues(startAt)
+      deck.crossfadeGain.gain.setValueCurveAtTime(curve, startAt, durationSeconds)
+    }
+    this.crossfader = to
+    this.crossfaderCurve = 'equalPower'
+    this.emit()
+  }
+
+  /**
+   * Atomically queues target playback and both equal-power gain curves on one
+   * AudioContext timestamp. Start/completion are confirmed by silent Web Audio
+   * marker sources, so wall-clock timers and AudioContext suspension cannot
+   * produce a false terminal result.
+   */
+  scheduleBeatTransitionAtAudioTime(
+    id: DeckId,
+    startAt: number,
+    durationSeconds: number,
+    from: number,
+    to: number,
+  ): DeckEngineBeatTransitionReservation {
+    assertInRange(from, -1, 1, 'Crossfader transition start')
+    assertInRange(to, -1, 1, 'Crossfader transition target')
+    if (!Number.isFinite(startAt) || startAt <= this.context.currentTime) {
+      throw new RangeError('Beat transition start must be in the future.')
+    }
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      throw new RangeError('Beat transition duration must be a positive finite number.')
+    }
+    const deck = this.decks[id]
+    if (!deck.buffer) throw new Error(`Deck ${id} has no loaded audio.`)
+    if (deck.playing || deck.starting) throw new Error(`Deck ${id} is already playing.`)
+
+    const started = deferred<void>()
+    const completed = deferred<void>()
+    const main = this.context.createBufferSource()
+    const startMarker = this.context.createBufferSource()
+    const endMarker = this.context.createBufferSource()
+    const silent = this.context.createGain()
+    silent.gain.value = 0
+    silent.connect(this.masterGain)
+    main.buffer = deck.buffer
+    main.playbackRate.value = deck.playbackRate
+    main.connect(deck.inputGain)
+    startMarker.buffer = deck.buffer
+    endMarker.buffer = deck.buffer
+    startMarker.connect(silent)
+    endMarker.connect(silent)
+
+    const steps = 128
+    const curveA = new Float32Array(steps + 1)
+    const curveB = new Float32Array(steps + 1)
+    for (let index = 0; index <= steps; index += 1) {
+      const position = from + (to - from) * (index / steps)
+      const gains = equalPowerGains(position)
+      curveA[index] = gains.a
+      curveB[index] = gains.b
+    }
+
+    let cancelled = false
+    let finished = false
+    const startOffset = deck.offset
+    const sourceGeneration = deck.generation + 1
+    main.onended = () => {
+      if (deck.generation !== sourceGeneration || !deck.playing) return
+      const finalPosition = deck.buffer?.duration ?? this.positionFor(deck)
+      deck.playing = false
+      deck.source = null
+      deck.offset = 0
+      this.emit()
+      this.endedListeners.forEach((listener) => listener(id, finalPosition))
+    }
+    startMarker.onended = () => {
+      startMarker.disconnect()
+      if (!cancelled) started.resolve()
+    }
+    endMarker.onended = () => {
+      endMarker.disconnect()
+      silent.disconnect()
+      if (cancelled || finished) return
+      finished = true
+      this.crossfader = to
+      this.crossfaderCurve = 'equalPower'
+      this.emit()
+      completed.resolve()
+    }
+
+    const markerLength = Math.min(0.001, durationSeconds / 4)
+    try {
+      main.start(startAt, startOffset)
+      startMarker.start(startAt, 0)
+      startMarker.stop(startAt + markerLength)
+      endMarker.start(startAt + durationSeconds, 0)
+      endMarker.stop(startAt + durationSeconds + markerLength)
+      this.decks.A.crossfadeGain.gain.cancelScheduledValues(startAt)
+      this.decks.B.crossfadeGain.gain.cancelScheduledValues(startAt)
+      this.decks.A.crossfadeGain.gain.setValueCurveAtTime(curveA, startAt, durationSeconds)
+      this.decks.B.crossfadeGain.gain.setValueCurveAtTime(curveB, startAt, durationSeconds)
+    } catch (cause) {
+      safeStop(main)
+      safeStop(startMarker)
+      safeStop(endMarker)
+      main.disconnect()
+      startMarker.disconnect()
+      endMarker.disconnect()
+      silent.disconnect()
+      this.restoreCrossfaderAt(from, this.context.currentTime)
+      throw cause
+    }
+
+    deck.generation = sourceGeneration
+    deck.source = main
+    deck.startedAt = startAt
+    deck.offset = startOffset
+    deck.playing = true
+    deck.starting = false
+    this.crossfader = from
+    this.crossfaderCurve = 'equalPower'
+    this.emit()
+
+    return {
+      started: started.promise,
+      completed: completed.promise,
+      sample: () => {
+        const now = this.context.currentTime
+        const fraction = now <= startAt ? 0 : now >= startAt + durationSeconds ? 1 : (now - startAt) / durationSeconds
+        return {
+          targetPosition: this.positionFor(deck),
+          holdPosition: from + (to - from) * fraction,
+          progressedDurationSeconds: fraction * durationSeconds,
+        }
+      },
+      cancel: (holdPositionOverride) => {
+        const now = this.context.currentTime
+        const fraction = now <= startAt ? 0 : now >= startAt + durationSeconds ? 1 : (now - startAt) / durationSeconds
+        const sampledPosition = from + (to - from) * fraction
+        const holdPosition = holdPositionOverride ?? sampledPosition
+        assertInRange(holdPosition, -1, 1, 'Crossfader cancellation hold position')
+        if (!cancelled && !finished) {
+          cancelled = true
+          deck.offset = this.positionFor(deck)
+          deck.playing = false
+          deck.starting = false
+          deck.generation += 1
+          safeStop(main)
+          safeStop(startMarker)
+          safeStop(endMarker)
+          main.disconnect()
+          startMarker.disconnect()
+          endMarker.disconnect()
+          silent.disconnect()
+          this.restoreCrossfaderAt(holdPosition, now)
+          const cancellation = new Error('Beat transition reservation was cancelled.')
+          started.reject(cancellation)
+          completed.reject(cancellation)
+          this.emit()
+        }
+        return {
+          targetPosition: deck.offset,
+          holdPosition,
+          progressedDurationSeconds: fraction * durationSeconds,
+        }
+      },
+    }
+  }
+
+  private restoreCrossfaderAt(position: number, atAudioTime: number): void {
+    const gains = equalPowerGains(position)
+    holdAudioParamAt(this.decks.A.crossfadeGain.gain, atAudioTime, gains.a)
+    holdAudioParamAt(this.decks.B.crossfadeGain.gain, atAudioTime, gains.b)
+    this.crossfader = position
+    this.crossfaderCurve = 'equalPower'
+  }
+
+  /** Cancels an in-flight crossfader automation, holding equal-power gains at `holdPosition`. */
+  stopCrossfaderRamp(holdPosition: number): void {
+    assertInRange(holdPosition, -1, 1, 'Crossfader hold position')
+    const now = this.context.currentTime
+    const gains = equalPowerGains(holdPosition)
+    holdAudioParamAt(this.decks.A.crossfadeGain.gain, now, gains.a)
+    holdAudioParamAt(this.decks.B.crossfadeGain.gain, now, gains.b)
+    this.crossfader = holdPosition
+    this.crossfaderCurve = 'equalPower'
     this.emit()
   }
 
@@ -388,6 +632,7 @@ export class DeckEngine {
 
   private positionFor(deck: DeckGraph): number {
     if (!deck.playing) return deck.offset
+    if (this.context.currentTime < deck.startedAt) return deck.offset
     const elapsed = (this.context.currentTime - deck.startedAt) * deck.playbackRate
     return clamp(deck.offset + elapsed, 0, deck.buffer?.duration ?? 0)
   }
@@ -423,4 +668,39 @@ function assertInRange(value: number, minimum: number, maximum: number, label: s
   if (!Number.isFinite(value) || value < minimum || value > maximum) {
     throw new RangeError(`${label} must be between ${minimum} and ${maximum}.`)
   }
+}
+
+function safeStop(source: AudioBufferSourceNode): void {
+  try {
+    source.stop()
+  } catch {
+    // stop() is idempotent at the engine boundary; invalid-state after a prior
+    // end has no remaining audio side effect to undo.
+  }
+}
+
+function holdAudioParamAt(param: AudioParam, atAudioTime: number, value: number): void {
+  if (typeof param.cancelAndHoldAtTime === 'function') {
+    param.cancelAndHoldAtTime(atAudioTime)
+  } else {
+    // cancelScheduledValues(atAudioTime) does not remove a curve whose start
+    // event is already in the past, so legacy implementations cancel all
+    // automation before explicitly setting the observed hold value.
+    param.cancelScheduledValues(0)
+  }
+  param.setValueAtTime(value, atAudioTime)
+}
+
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve(value?: T | PromiseLike<T>): void
+  reject(reason?: unknown): void
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve: (value) => resolve(value as T | PromiseLike<T>), reject }
 }

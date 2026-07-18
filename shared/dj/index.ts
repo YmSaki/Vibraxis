@@ -95,6 +95,13 @@ export interface DjDecision {
  */
 export interface TransitionPlan {
   fromTrackId: string;
+  /**
+   * Canonical bindingId of the track playing on the active deck when the plan was
+   * built. The executor passes it as `expectedBindingId` on the final active-deck
+   * pause so a user reload of the active deck mid-transition is never paused
+   * (fromTrackId is insufficient — the same track can be re-bound). Finding 6.
+   */
+  fromBindingId: string;
   activeDeckId: DeckId;
   nextTrackId: string;
   targetDeckId: DeckId;

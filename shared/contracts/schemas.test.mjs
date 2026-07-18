@@ -16,6 +16,7 @@ const [
   decisionSchema,
   deckLoadSchema,
   rampSchema,
+  transitionStartSchema,
 ] =
   await Promise.all([
     readJson("analyze-tool/analysis.schema.json"),
@@ -23,6 +24,7 @@ const [
     readJson("shared/dj/decision.schema.json"),
     readJson("shared/vdap/deck-load.schema.json"),
     readJson("shared/vdap/ramp-crossfader.schema.json"),
+    readJson("shared/vdap/transition-start.schema.json"),
   ]);
 
 const analysisFileNames = (await readdir(new URL("data/analysis/", root)))
@@ -38,6 +40,7 @@ const validateIntent = ajv.compile(intentSchema);
 const validateDecision = ajv.compile(decisionSchema);
 const validateDeckLoad = ajv.compile(deckLoadSchema);
 const validateRamp = ajv.compile(rampSchema);
+const validateTransitionStart = ajv.compile(transitionStartSchema);
 
 const validIntent = {
   energyDirection: "increase",
@@ -175,4 +178,33 @@ test("rampCrossfader schema enforces duration shape and beat reference", () => {
   const { referenceDeckId: _omitted, ...withoutReference } = valid.params;
   assert.equal(validateRamp({ ...valid, params: withoutReference }), false);
   assert.equal(validateRamp({ ...valid, when: { at: "nextBar" } }), false);
+});
+
+test("transition.start schema requires two bindings and one atomic bar request", () => {
+  const valid = {
+    vdap: "1.0",
+    kind: "request",
+    requestId: "transition-1",
+    command: "transition.start",
+    params: {
+      activeDeckId: "A",
+      activeBindingId: "bind-A",
+      targetDeckId: "B",
+      targetBindingId: "bind-B",
+      at: "nextBar",
+      minConfidence: 0.7,
+      crossfader: { to: 1, duration: { bars: 4 }, curve: "equalPower" },
+    },
+  };
+  assert.equal(validateTransitionStart(valid), true, ajv.errorsText(validateTransitionStart.errors));
+  assert.equal(validateTransitionStart({ ...valid, when: { at: "nextBar" } }), false);
+  assert.equal(
+    validateTransitionStart({
+      ...valid,
+      params: { ...valid.params, crossfader: { ...valid.params.crossfader, duration: { seconds: 8 } } },
+    }),
+    false,
+  );
+  const { targetBindingId: _omitted, ...withoutTargetBinding } = valid.params;
+  assert.equal(validateTransitionStart({ ...valid, params: withoutTargetBinding }), false);
 });
