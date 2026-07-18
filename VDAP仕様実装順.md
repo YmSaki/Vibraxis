@@ -11,7 +11,7 @@ VDAP本体は長期的な通信契約を定義する。この文書は、その�
 
 判断基準は次の順とする。
 
-1. デモ中の無音・暴走・クリップを防ぐ。
+1. デモ中の無音や暴走を防ぎ、音量操作はユーザー指定をそのまま反映する。
 2. Agentが選曲し、次曲を安全に準備し、拍に合わせて滑らかにつなげる。
 3. 人間がいつでもAgentを上書きできる。
 4. デモで見える、聞こえる、説明できる。
@@ -32,7 +32,7 @@ VDAP本体は長期的な通信契約を定義する。この文書は、その�
 まだゴールデンパスを阻んでいるもの:
 
 - UIと`DeckEngine`の間に正準VDAP Runtimeがない。
-- staged load、crossfader ramp、最終ピーク保護が実エンジンにない。
+- staged load、crossfader rampが実エンジンにない。
 - Backend、`DjAgentProvider`、決定論的選曲、Codex接続がない。
 - VDAP用JSON Schema、共有TypeScript型、解析JSONをRuntimeへ安全に渡すAPIがない。
 
@@ -71,7 +71,7 @@ sequenceDiagram
 - GPT-5.6の構造化`DjIntent`が候補順位または遷移方針へ実際に影響する。
 - Bが小節頭で開始し、テンポが許容範囲内でAへ合う。
 - クロスフェーダーが急変せず、指定拍数で滑らかにAからBへ移る。
-- 最終出力がクリップしない。
+- GAIN、EQ、crossfader、MASTER以外の自動音量処理が入らない。
 - ユーザーが操作した場合、同じ領域のAgent予約が停止する。
 - Codexが利用不能でも決定論的フォールバックで同じデモ経路を継続できる。
 
@@ -91,7 +91,7 @@ sequenceDiagram
 | 0 | P0 | ゴールデンパスを阻むVDAP契約を固定 | なし | §5.1の最小修正が仕様とテスト表へ反映済み |
 | 1 | P0 | デモ用JSON Schema・TypeScript型 | 0 | ゴールデンパスのVDAP/解析/Agentデータを機械検証できる |
 | 2 | P0 | 正準Runtime StoreとMessagePort縦切り | 1 | UI操作がRuntime経由で1デッキを再生できる |
-| 3 | P0 | 安全な2デッキ音声基盤 | 2 | staged load、panic、最終リミッターが動く |
+| 3 | P0 | 透明な2デッキ音声基盤 | 2 | staged load、panic、直接的なミキサー経路が動く |
 | 4 | P1 | 最小Beat Transition | 3 | nextBar開始とcrossfader rampで2曲をつなげる |
 | 5 | P1 | 決定論的DJロジック | 1 | BPM・Camelot・energyから次曲を選べる。順序2〜4と並行可 |
 | 6 | P1 | GPT-5.6 Intent + Codex DJ Agent Provider | 5 | 両モデルが選曲経路で意味のある役割を持ち、失敗時に決定論へfallbackする |
@@ -106,12 +106,12 @@ sequenceDiagram
 - [x] 順序0: ゴールデンパスを阻むVDAP契約を固定
 - [x] 順序1: デモ用JSON Schema・TypeScript型
 - [x] 順序2: 正準Runtime StoreとMessagePort縦切り
-- [x] 順序3: 安全な2デッキ音声基盤（staged load・最終リミッター・/api/analysis・解析binding・deck.ended済み。OfflineAudioContextのpeak≤0.95自動レンダ検証とpanic 50ms計測は未自動化 — 順序7のデモsmoke時に実測で代替する）
+- [x] 順序3: 透明な2デッキ音声基盤（staged load・/api/analysis・解析binding・deck.ended済み。音声経路はGAIN → 3-band EQ → crossfader → MASTER → destinationで、自動リミッターや音量補正を挟まない）
 - [ ] 順序4: 最小Beat Transition
 - [ ] 順序5: 決定論的DJロジック
 - [ ] 順序6: GPT-5.6 Intent + Codex DJ Agent Provider
-- [ ] 順序7: UI統合・E2Eデモ・録画固定
-- [ ] 順序8: P2から必要なものを選択
+- [ ] 順序7: UI統合・E2Eデモ・録画固定（進行中: 各Deckに中央固定playheadの3バンド拡大スクロール波形と小型全曲overviewを分離し、beat/downbeat/padオーバーレイ、4/8/16/32小節ズーム、両波形からのVDAP seekを実装済み。現在の解析品質ではSECTION/CHORDを波形へ表示しない。共有`TrackTimeline`は拍/小節頭と、取得できたsection/chord-degreeの位置参照を一元化する）
+- [ ] 順序8: P2から必要なものを選択（`deck.getGrid`クエリを実装済み: バインド解析のフルビートグリッド[beats/downbeats/bars/sections/phrases＋任意chords]をbinding単位でキャッシュし、高頻度snapshotへは複製しない。`E_DECK_EMPTY`/`E_ANALYSIS_UNAVAILABLE`を規範どおり返す）
 
 各順序で用意する検証コマンド:
 
@@ -120,7 +120,7 @@ sequenceDiagram
 | 0 | `npm run check:protocol-docs` | JSON例、必須語、ゴールデンパス契約の静的検査が成功 |
 | 1 | `npm run test:contracts` | VDAP/Analysis/DJ Schemaの正常・異常fixtureが全て期待どおり |
 | 2 | `npm run test:runtime` | MessagePort、state、ack/event、権限、panicが成功 |
-| 3 | `npm run test:audio` | staged load、解析binding、limiter、追い越しが成功 |
+| 3 | `npm run test:audio` | staged load、解析binding、直接的なミキサー経路、追い越しが成功 |
 | 4 | `npm run test:transition` | nextBar、ramp、取消、失敗rollbackが成功 |
 | 5 | `npm run test:dj` | scoringとhistoryのunit testが成功 |
 | 6 | `npm run test:agent` | GPT-5.6/Codex出力検証とfallbackのintegration testが成功 |
@@ -276,9 +276,9 @@ frontend/src/runtime/
 - `runtime.panic`で両デッキと予約を即時停止できる。
 - `npm run check`が通る。
 
-### 5.4 順序3 — 安全な2デッキ音声基盤 [P0]
+### 5.4 順序3 — 透明な2デッキ音声基盤 [P0]
 
-目的: Agentの判断ミスやロード失敗でフロアを無音・爆音にしない。
+目的: 操作値を隠れて補正しない透明な音声経路と、失敗を明示するロード処理を提供する。
 
 実装項目:
 
@@ -288,18 +288,18 @@ frontend/src/runtime/
 - load generation: 追い越されたdecode結果をcommitしない。
 - 再生中デッキへのAgent loadを既定拒否する。
 - 位置ペア`{sourceSeconds, atRuntimeTime}`と`headVelocity`をRuntimeから配信する。
-- master直前に最終ピーク保護を入れる。
+- 音声経路をGAIN → 3-band EQ → crossfader → MASTER → destinationとし、自動ゲイン補正、リミッター、コンプレッサー、強制ceilingを挟まない。
 - 手動操作は中央ユニティのDJカーブ、自動rampはequal-powerとして分離する。
 - AudioContext lock、decode失敗、曲末端を安定エラーへ写像する。
 
-最終ピーク保護は、ハッカソンでは`DynamicsCompressorNode`等を用いてよい。重要なのは実装方式ではなく、最大デッキゲインと中央ミックス時にも出力が破綻しないことである。
+クリップの可能性は音量へ自動介入せず、必要な場合は状態表示だけで通知する。
 
 完了条件:
 
 - 明示的な置換を許可して再生中の同一デッキXへloadし、そのloadが失敗しても、Xの旧bindingId・音声・transport・外挿位置が連続する。
 - 連続した2ロードでは後発だけがcommitされる。
 - catalogの全trackIdについて解析APIが対応する解析JSONを返し、未知IDと不正Schemaを拒否する。
-- golden音源を`OfflineAudioContext`で両デッキ最大想定入力・中央クロスフェーダーとしてrenderし、最終出力の絶対peakが0.95以下である。
+- 音声グラフに自動的な増減衰やダイナミクス処理がなく、操作値が各ノードへそのまま反映される。
 - panicが50ms目標で停止する。
 - audio関連Vitestと`npm run check`が通る。
 
@@ -508,7 +508,7 @@ UIで見せるもの:
 - ChordMini等によるコード進行・セクション高度解析
 - degree nameによるコード進行マッチング
 - 継続tempo follow
-- loop、EQ、FX、key lock
+- loop、ISOLATOR/advanced EQ、FX、key lock（通常の3-band EQは順序7で実装済み）
 - 外部クライアントへの正式なVDAP公開
 - リモート/マルチユーザー認証
 - ホスト版・ストリーミングサービス連携
@@ -523,7 +523,7 @@ P3の項目は、P0/P1の設計を壊さないため仕様上の拡張点だけ�
 | 作業レーン | 担当範囲 | 合流点 |
 |---|---|---|
 | Runtime | Store、Intent、MessagePort、権限、panic | shared VDAP型 |
-| Audio | staged load、位置ペア、limiter、ramp | RuntimeのAudio Adapter interface |
+| Audio | staged load、位置ペア、透明なミキサー経路、ramp | RuntimeのAudio Adapter interface |
 | DJ Logic | scoring、history、`DjDecision` | shared DJ型 |
 | Agent | Backend、Codex provider、fallback | `DjAgentProvider` interface |
 | UI | 状態表示、Agent理由、mix表示 | Runtime snapshot + `DjDecision` |
@@ -551,7 +551,7 @@ P3の項目は、P0/P1の設計を壊さないため仕様上の拡張点だけ�
 
 - staged load
 - crossfader ramp
-- 最終ピーク保護
+- 透明な音声経路（自動ゲイン補正・ダイナミクス処理なし）
 - user override / panic
 - Agent出力Schema検証
 - 決定論的fallback
@@ -576,7 +576,7 @@ P3の項目は、P0/P1の設計を壊さないため仕様上の拡張点だけ�
 - [ ] 再生中の同一デッキXへの明示置換loadが失敗しても、Xの旧binding・音声・位置が継続する。
 - [ ] Bが目標拍/小節境界から±10ms以内に開始する。
 - [ ] crossfader rampの時間誤差が±10ms以内で、equal-power単調曲線のテストを通る。
-- [ ] golden音源の最大想定ミックスをrenderした出力peakが0.95以下である。
+- [ ] GAIN、EQ、crossfader、MASTERの操作値が自動補正されず音声ノードへ反映される。
 - [ ] user overrideとpanicが機能する。
 - [ ] GPT-5.6 Intent、Codex Decision、決定論的fallbackの3経路が動く。
 - [ ] READMEと3分動画の音声で、GPT-5.6とCodexのmeaningful useを説明している。

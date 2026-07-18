@@ -14,15 +14,12 @@ describe('calculateTempoSync', () => {
 
     expect(result.targetBpm).toBeCloseTo(126)
     expect(result.playbackRate).toBeCloseTo(1.26)
-    expect(result.exact).toBe(true)
   })
 
-  it('clamps rates that the deck cannot reach', () => {
-    const result = calculateTempoSync(180, 1, 80)
-
-    expect(result.requestedRate).toBeCloseTo(2.25)
-    expect(result.playbackRate).toBe(1.5)
-    expect(result.exact).toBe(false)
+  it('rejects rates that the deck cannot reach instead of changing the requested sync', () => {
+    expect(() => calculateTempoSync(180, 1, 80)).toThrow(
+      'Tempo sync requires a playback rate of 2.25x, outside the supported 0.50x-1.50x range.',
+    )
   })
 
   it('rejects invalid tempo data', () => {
@@ -58,15 +55,16 @@ describe('djCrossfaderGains', () => {
     expect(djCrossfaderGains(1)).toEqual({ a: 0, b: 1 })
   })
 
-  it('clamps positions outside the fader range', () => {
-    expect(djCrossfaderGains(-3)).toEqual({ a: 1, b: 0 })
-    expect(djCrossfaderGains(3)).toEqual({ a: 0, b: 1 })
+  it('rejects positions outside the fader range instead of changing them', () => {
+    expect(() => djCrossfaderGains(-3)).toThrow('Crossfader position must be between -1 and 1.')
+    expect(() => djCrossfaderGains(3)).toThrow('Crossfader position must be between -1 and 1.')
+    expect(() => equalPowerGains(Number.NaN)).toThrow('Crossfader position must be between -1 and 1.')
   })
 })
 
 describe('formatTime', () => {
   it('formats elapsed seconds', () => {
     expect(formatTime(65.9)).toBe('01:05')
-    expect(formatTime(Number.NaN)).toBe('00:00')
+    expect(() => formatTime(Number.NaN)).toThrow('Time must be a non-negative finite number.')
   })
 })

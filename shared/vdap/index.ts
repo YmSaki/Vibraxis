@@ -156,6 +156,9 @@ export type DeckSetPadParams = {
 export type DeckClearPadParams = { deckId: DeckId; slot: number }
 export type DeckSetGainParams = { deckId: DeckId; gain: number }
 export type EqBand = 'low' | 'mid' | 'high'
+export const DECK_EQ_MIN_GAIN_DB = -26
+export const DECK_EQ_MAX_GAIN_DB = 6
+export const DECK_EQ_CENTER_GAIN_DB = 0
 export type DeckEqState = {
   lowDb: number
   midDb: number
@@ -456,7 +459,7 @@ export type BindingAnalysis = {
   bpm: number
   timeSignature: string
   beatsPerBar: number
-  firstDownbeatSeconds: number
+  firstDownbeatSeconds: number | null
   beatCount: number
   barCount: number
   key: string
@@ -465,7 +468,7 @@ export type BindingAnalysis = {
   energy: number
   grid: {
     available: boolean
-    confidence: number
+    confidence: number | null
     status: 'complete' | 'partial' | 'failed' | 'skipped'
   }
 }
@@ -585,16 +588,31 @@ export type RuntimeState = {
   intents: Record<IntentId, IntentState>
 }
 
+/**
+ * Timed chord projected from the analysis harmony track. Optional superset field
+ * on {@link DeckGrid}; present only when the bound analysis carries harmony.
+ */
+export type DeckGridChord = {
+  startSeconds: number
+  endSeconds: number
+  symbol: string
+  degree: string
+  confidence: number
+}
+
 export type DeckGrid = {
   bindingId: BindingId
   timeSignature: string
   beatsPerBar: number
   bpm: number
-  confidence: number
+  confidence: number | null
   beatsSeconds: number[]
   downbeatsSeconds: number[]
+  barsSeconds: number[]
   sections: JsonValue[]
   phrases: JsonValue[]
+  /** Optional harmony superset (§11.3); absent when no chords were analyzed. */
+  chords?: DeckGridChord[]
 }
 
 export type RampCrossfaderResult = {

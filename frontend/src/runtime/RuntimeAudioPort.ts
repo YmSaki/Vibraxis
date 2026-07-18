@@ -1,4 +1,6 @@
 import type {
+  BindingId,
+  DeckGrid,
   DeckId,
   DeckLoadParams,
   PositionPair,
@@ -16,7 +18,16 @@ export type AudioSeekRequest = {
 export type AudioLoadResult = {
   binding: TrackBinding
   position: PositionPair
+  /** Publishes audio observers only after the canonical runtime binding commits. */
+  finalize?: () => void
 }
+
+/**
+ * Full beat grid for a bound track, minus the canonical `bindingId` which the
+ * dispatcher supplies from the store. Held out of the high-frequency runtime
+ * snapshot and fetched on demand via `deck.getGrid`.
+ */
+export type DeckGridPayload = Omit<DeckGrid, 'bindingId'>
 
 /** Audio side effects injected into CommandDispatcher. */
 export interface RuntimeAudioPort {
@@ -33,6 +44,12 @@ export interface RuntimeAudioPort {
   panic(scope: RuntimePanicParams['scope']): Promise<Partial<Record<DeckId, PositionPair>>>
   /** Optional: notifies the runtime when a deck reaches the natural end of its track. */
   onTrackEnded?(listener: (deckId: DeckId, position: PositionPair) => void): () => void
+  /**
+   * Optional: returns the full analysis grid for a bound track, or null when no
+   * grid is cached for that binding. Backs `deck.getGrid` without duplicating the
+   * grid into every runtime snapshot.
+   */
+  getGrid?(bindingId: BindingId): DeckGridPayload | null
 }
 
 export class RuntimeAudioError extends Error {

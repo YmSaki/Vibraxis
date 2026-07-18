@@ -534,6 +534,8 @@ targetRuntimeTime = atRuntimeTime + (s* − sourceSeconds) / headVelocity
 
 binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALYSIS_UNAVAILABLE`。スナップショットにはグリッド全量を含めず(サイズのため)、本クエリで取得する。**SHOULD**。
 
+result は「グリッド全量」をそのまま返すため、上記の必須フィールドに加えて解析スキーマ準拠の `barsSeconds`(小節頭秒)を含め、解析にハーモニーが存在する場合は任意のスーパーセットとして `chords`(`{startSeconds,endSeconds,symbol,degree,confidence}` の配列)を含めてよい。これらは追加情報であり、必須フィールドの意味を変えない。ランタイムは制御状態(スナップショット)と派生グリッドを分離し、グリッドは binding 単位でキャッシュして本クエリ時にのみ配信する。
+
 ### 11.4 `deck.load`
 
 音声と解析メタデータを **原子的に** バインドする。
@@ -594,7 +596,7 @@ binding がなければ `E_DECK_EMPTY`、解析なしバインドなら `E_ANALY
 
 `{deckId, gain}`。線形ゲイン、範囲は `limits.gainRange`(既定 0〜1.5)。短い平滑化(≈10 ms)で適用することを **SHOULD** とする。
 
-`deck.setEq {deckId, band, gainDb}`。`band` は `"low" | "mid" | "high"`、`gainDb` は −12..+12 dB。正準状態の `deck.eq` は常に `{lowDb, midDb, highDb}` を持ち、初期値はすべて 0 dB とする。短い平滑化で適用することを **SHOULD** とする。競合ドメインはデッキごとの `eq` とする。
+`deck.setEq {deckId, band, gainDb}`。`band` は `"low" | "mid" | "high"`、`gainDb` は −26..+6 dB。0 dBをセンターおよびリセット値とする。3帯は独立して適用し、EQ操作に連動する自動的な全体ゲイン補正を行っては **MUST NOT** ならない。正準状態の `deck.eq` は常に `{lowDb, midDb, highDb}` を持ち、初期値はすべて 0 dB とする。短い平滑化で適用することを **SHOULD** とする。競合ドメインはデッキごとの `eq` とする。ISOLATORは本コマンドの対象外であり、将来の別能力とする。
 
 ### 11.10 `deck.setVelocity`
 

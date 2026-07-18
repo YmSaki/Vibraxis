@@ -1,4 +1,5 @@
 import type {
+  BindingId,
   DeckId,
   DeckLoadParams,
   PositionPair,
@@ -7,13 +8,19 @@ import type {
   VdapErrorCode,
 } from '@vibraxis/shared/vdap'
 import type { TrackAnalysis } from '@vibraxis/shared/analysis'
-import { fetchTrackAnalysis, toBindingAnalysis } from '../analysis'
+import {
+  assertUsableAnalysis,
+  fetchTrackAnalysis,
+  toBindingAnalysis,
+  toDeckGridPayload,
+} from '../analysis'
 import type { DeckEngine, PreparedDeckLoad } from '../audio/DeckEngine'
 import { trackAudioUrl, type CatalogTrack } from '../catalog'
 import {
   RuntimeAudioError,
   type AudioLoadResult,
   type AudioSeekRequest,
+  type DeckGridPayload,
   type RuntimeAudioPort,
 } from './RuntimeAudioPort'
 
@@ -40,6 +47,14 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
   readonly #now: () => number
   readonly #nextBindingId: () => string
   readonly #fetchAnalysis: (trackId: string) => Promise<TrackAnalysis>
+  /**
+   * Full analysis grids kept outside the runtime snapshot and keyed by the
+   * bindingId they belong to. `deck.getGrid` reads from here on demand so large
+   * beat arrays are never cloned into every high-frequency snapshot. Superseded
+   * bindings on a deck are evicted on the next load/unload.
+   */
+  readonly #grids = new Map<BindingId, DeckGridPayload>()
+  readonly #deckBinding: Record<DeckId, BindingId | null> = { A: null, B: null }
 
   constructor(options: DeckEngineAudioPortOptions) {
     this.#engine = options.engine
@@ -52,6 +67,7 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
 
   async load(params: DeckLoadParams): Promise<AudioLoadResult> {
     const source = this.resolveSource(params.source)
+    const requireAnalysis = params.requireAnalysis ?? source.kind === 'catalog'
 
     // Audio and analysis are fetched in parallel; both must settle before the
     // binding commits so a binding is never half-analyzed.
@@ -81,30 +97,85 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
     if (!preparedAudio || !this.#engine.isLoadCurrent(params.deckId, preparedAudio)) {
       throw audioPortError('E_LOAD_FAILED', 'Load was superseded by a newer load.', true)
     }
-    if (params.requireAnalysis && !analysis) {
+    if (requireAnalysis && !analysis) {
       this.#engine.discardPreparedLoad(preparedAudio)
       throw audioPortError(
         'E_ANALYSIS_UNAVAILABLE',
         analysisError ?? `No analysis is available for ${source.trackId}.`,
       )
     }
-    const audioReceipt = this.#engine.commitPreparedLoad(preparedAudio)
-    if (!audioReceipt || !this.#engine.isLoadCurrent(params.deckId, audioReceipt)) {
-      throw audioPortError('E_LOAD_FAILED', 'Load was superseded by a newer load.', true)
+    let bindingAnalysis: TrackBinding['analysis'] = null
+    let grid: DeckGridPayload | null = null
+    if (analysis) {
+      try {
+        assertUsableAnalysis(analysis, source.trackId)
+        bindingAnalysis = toBindingAnalysis(analysis)
+        grid = toDeckGridPayload(analysis)
+      } catch (cause) {
+        if (requireAnalysis) {
+          this.#engine.discardPreparedLoad(preparedAudio)
+          throw audioPortError(
+            'E_ANALYSIS_UNAVAILABLE',
+            cause instanceof Error ? cause.message : `Analysis for ${source.trackId} is invalid.`,
+          )
+        }
+        analysis = null
+      }
     }
-    const deck = this.#engine.snapshot().decks[params.deckId]
     const startSeconds = params.initialPosition?.sourceSeconds ?? 0
-    if (startSeconds > 0) this.#engine.seek(params.deckId, startSeconds)
-
+    if (!Number.isFinite(startSeconds) || startSeconds < 0 || startSeconds > preparedAudio.buffer.duration) {
+      this.#engine.discardPreparedLoad(preparedAudio)
+      throw audioPortError(
+        'E_OUT_OF_RANGE',
+        `initialPosition.sourceSeconds must be between 0 and ${preparedAudio.buffer.duration}.`,
+      )
+    }
+    let bindingId: BindingId
+    try {
+      bindingId = this.#nextBindingId()
+    } catch (cause) {
+      this.#engine.discardPreparedLoad(preparedAudio)
+      throw audioPortError(
+        'E_LOAD_FAILED',
+        cause instanceof Error ? cause.message : 'Failed to allocate a binding ID.',
+      )
+    }
     const binding: TrackBinding = {
-      bindingId: this.#nextBindingId(),
+      bindingId,
       trackId: source.trackId,
       source: { kind: source.kind, uri: source.uri, title: source.title },
       sha256: analysis?.source.sha256 ?? null,
-      durationSeconds: deck.duration,
-      analysis: analysis ? toBindingAnalysis(analysis) : null,
+      durationSeconds: preparedAudio.buffer.duration,
+      analysis: bindingAnalysis,
     }
-    return { binding, position: this.position(params.deckId) }
+    const audioReceipt = this.#engine.commitPreparedLoad(preparedAudio, {
+      emit: false,
+      initialOffset: startSeconds,
+    })
+    if (!audioReceipt || !this.#engine.isLoadCurrent(params.deckId, audioReceipt)) {
+      throw audioPortError('E_LOAD_FAILED', 'Load was superseded by a newer load.', true)
+    }
+    // The old binding on this deck is now unreachable; drop its grid before we
+    // remember the new one so the cache stays bounded to live bindings.
+    this.#evictDeckGrid(params.deckId)
+    if (grid) {
+      this.#grids.set(binding.bindingId, grid)
+    }
+    this.#deckBinding[params.deckId] = binding.bindingId
+    let finalized = false
+    return {
+      binding,
+      position: this.position(params.deckId),
+      finalize: () => {
+        if (finalized) return
+        finalized = true
+        this.#engine.finalizePreparedLoad(params.deckId, audioReceipt)
+      },
+    }
+  }
+
+  getGrid(bindingId: BindingId): DeckGridPayload | null {
+    return this.#grids.get(bindingId) ?? null
   }
 
   onTrackEnded(listener: (deckId: DeckId, position: PositionPair) => void): () => void {
@@ -114,7 +185,16 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
   }
 
   async unload(deckId: DeckId): Promise<void> {
+    this.#evictDeckGrid(deckId)
     this.#engine.unload(deckId)
+  }
+
+  #evictDeckGrid(deckId: DeckId): void {
+    const previous = this.#deckBinding[deckId]
+    if (previous !== null && this.#deckBinding[deckId === 'A' ? 'B' : 'A'] !== previous) {
+      this.#grids.delete(previous)
+    }
+    this.#deckBinding[deckId] = null
   }
 
   async play(deckId: DeckId): Promise<PositionPair> {
@@ -149,8 +229,27 @@ export class DeckEngineAudioPort implements RuntimeAudioPort {
         retryable: false,
       })
     }
+    const deck = this.#engine.snapshot().decks[deckId]
+    if (
+      !Number.isFinite(target.sourceSeconds)
+      || target.sourceSeconds < 0
+      || target.sourceSeconds > deck.duration
+    ) {
+      throw audioPortError(
+        'E_OUT_OF_RANGE',
+        `sourceSeconds must be between 0 and ${deck.duration}.`,
+      )
+    }
     if (request.resume === 'pause') this.#engine.pause(deckId)
-    this.#engine.seek(deckId, target.sourceSeconds)
+    try {
+      await this.#engine.seek(deckId, target.sourceSeconds)
+    } catch (cause) {
+      throw audioPortError(
+        'E_AUDIO_LOCKED',
+        cause instanceof Error ? cause.message : 'Audio playback could not be resumed after seek.',
+        true,
+      )
+    }
     if (request.resume === 'play' && !this.#engine.snapshot().decks[deckId].playing) {
       await this.play(deckId)
     }

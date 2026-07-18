@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createInitialRuntimeState } from '../runtime/RuntimeStore'
 import { DeckEngine } from './DeckEngine'
 
@@ -12,16 +12,10 @@ class FakeParam {
 
 class FakeGain {
   gain = new FakeParam()
-  connect(): void {}
-}
-
-class FakeCompressor {
-  threshold = new FakeParam()
-  knee = new FakeParam()
-  ratio = new FakeParam()
-  attack = new FakeParam()
-  release = new FakeParam()
-  connect(): void {}
+  connections: unknown[] = []
+  connect(target: unknown): void {
+    this.connections.push(target)
+  }
 }
 
 class FakeBiquad {
@@ -32,10 +26,24 @@ class FakeBiquad {
   connect(): void {}
 }
 
-class FakeWaveShaper {
-  curve: Float32Array | null = null
-  oversample: OverSampleType = 'none'
+class FakeSource {
+  buffer: AudioBuffer | null = null
+  playbackRate = new FakeParam()
+  onended: (() => void) | null = null
+  disconnected = false
+  startOffset: number | null = null
+
+  constructor(private readonly context: FakeContext) {}
+
   connect(): void {}
+  start(_when: number, offset: number): void {
+    if (this.context.startError) throw this.context.startError
+    this.startOffset = offset
+  }
+  stop(): void {}
+  disconnect(): void {
+    this.disconnected = true
+  }
 }
 
 class FakeContext {
@@ -43,10 +51,10 @@ class FakeContext {
   state: AudioContextState = 'suspended'
   destination = {}
   gains: FakeGain[] = []
-  compressors: FakeCompressor[] = []
   biquads: FakeBiquad[] = []
-  waveShapers: FakeWaveShaper[] = []
   resumeError: Error | null = null
+  startError: Error | null = null
+  sources: FakeSource[] = []
   deferredDecode = false
   decodeResolvers: Array<(buffer: AudioBuffer) => void> = []
 
@@ -56,22 +64,16 @@ class FakeContext {
     return gain
   }
 
-  createDynamicsCompressor(): FakeCompressor {
-    const compressor = new FakeCompressor()
-    this.compressors.push(compressor)
-    return compressor
-  }
-
   createBiquadFilter(): FakeBiquad {
     const filter = new FakeBiquad()
     this.biquads.push(filter)
     return filter
   }
 
-  createWaveShaper(): FakeWaveShaper {
-    const shaper = new FakeWaveShaper()
-    this.waveShapers.push(shaper)
-    return shaper
+  createBufferSource(): FakeSource {
+    const source = new FakeSource(this)
+    this.sources.push(source)
+    return source
   }
 
   async resume(): Promise<void> {
@@ -92,6 +94,14 @@ function fakeFile(name: string): File {
   } as File
 }
 
+beforeEach(() => {
+  vi.stubGlobal('window', { setInterval: () => 1, clearInterval: () => {} })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
 describe('DeckEngine mixer routing', () => {
   it('starts with the same master gain as canonical runtime state', () => {
     const context = new FakeContext()
@@ -110,8 +120,8 @@ describe('DeckEngine mixer routing', () => {
 
     expect(context.gains[0].gain.value).toBeCloseTo(0.6)
     expect(context.gains[1].gain.value).toBeCloseTo(1.25)
-    expect(context.gains[3].gain.value).toBeCloseTo(1)
-    expect(context.gains[6].gain.value).toBeCloseTo(0)
+    expect(context.gains[2].gain.value).toBeCloseTo(1)
+    expect(context.gains[4].gain.value).toBeCloseTo(0)
     expect(engine.snapshot().crossfader).toBe(-1)
   })
 
@@ -120,16 +130,16 @@ describe('DeckEngine mixer routing', () => {
     const engine = new DeckEngine(context as unknown as AudioContext)
 
     engine.setCrossfader(0)
-    expect(context.gains[3].gain.value).toBe(1)
-    expect(context.gains[6].gain.value).toBe(1)
+    expect(context.gains[2].gain.value).toBe(1)
+    expect(context.gains[4].gain.value).toBe(1)
 
     engine.setCrossfader(-0.5)
-    expect(context.gains[3].gain.value).toBe(1)
-    expect(context.gains[6].gain.value).toBe(0.5)
+    expect(context.gains[2].gain.value).toBe(1)
+    expect(context.gains[4].gain.value).toBe(0.5)
 
     engine.setCrossfader(0.5)
-    expect(context.gains[3].gain.value).toBe(0.5)
-    expect(context.gains[6].gain.value).toBe(1)
+    expect(context.gains[2].gain.value).toBe(0.5)
+    expect(context.gains[4].gain.value).toBe(1)
   })
 
   it('retains equal-power as an explicit automation curve', () => {
@@ -138,8 +148,8 @@ describe('DeckEngine mixer routing', () => {
 
     engine.setCrossfader(0, 'equalPower')
 
-    expect(context.gains[3].gain.value).toBeCloseTo(Math.SQRT1_2)
-    expect(context.gains[6].gain.value).toBeCloseTo(Math.SQRT1_2)
+    expect(context.gains[2].gain.value).toBeCloseTo(Math.SQRT1_2)
+    expect(context.gains[4].gain.value).toBeCloseTo(Math.SQRT1_2)
   })
 
   it('creates and controls low, mid, and high EQ filters per deck', () => {
@@ -150,34 +160,55 @@ describe('DeckEngine mixer routing', () => {
     expect(context.biquads.slice(0, 3).map((filter) => filter.type)).toEqual(['lowshelf', 'peaking', 'highshelf'])
     expect(context.biquads.slice(0, 3).map((filter) => filter.frequency.value)).toEqual([250, 1_000, 4_000])
 
-    engine.setDeckEq('A', 'low', -8)
+    const mixerGainsBeforeEq = context.gains.map((node) => node.gain.value)
+    engine.setDeckEq('A', 'low', -26)
     engine.setDeckEq('A', 'mid', 4)
-    engine.setDeckEq('A', 'high', 99)
+    engine.setDeckEq('A', 'high', 6)
 
-    expect(context.biquads[0].gain.value).toBe(-8)
+    expect(context.biquads[0].gain.value).toBe(-26)
     expect(context.biquads[1].gain.value).toBe(4)
-    expect(context.biquads[2].gain.value).toBe(12)
-    expect(context.gains[2].gain.value).toBeCloseTo(10 ** (-16 / 20))
+    expect(context.biquads[2].gain.value).toBe(6)
+    expect(context.gains.map((node) => node.gain.value)).toEqual(mixerGainsBeforeEq)
 
+    engine.setDeckEq('A', 'low', 0)
     engine.setDeckEq('A', 'mid', 0)
     engine.setDeckEq('A', 'high', 0)
-    expect(context.gains[2].gain.value).toBe(1)
+    expect(context.biquads.slice(0, 3).map((filter) => filter.gain.value)).toEqual([0, 0, 0])
+    expect(context.gains.map((node) => node.gain.value)).toEqual(mixerGainsBeforeEq)
   })
 
-  it('clamps all public mixer controls to safe ranges', () => {
+  it('rejects invalid public mixer controls instead of silently clamping them', () => {
     const context = new FakeContext()
     const engine = new DeckEngine(context as unknown as AudioContext)
 
-    engine.setDeckGain('B', 99)
-    engine.setPlaybackRate('B', 0)
-    engine.setMasterVolume(-1)
-    engine.setCrossfader(4)
+    expect(() => engine.setDeckGain('B', 99)).toThrow(RangeError)
+    expect(() => engine.setPlaybackRate('B', 0)).toThrow(RangeError)
+    expect(() => engine.setMasterVolume(-1)).toThrow(RangeError)
+    expect(() => engine.setCrossfader(4)).toThrow(RangeError)
+    expect(() => engine.setDeckEq('B', 'low', -26.1)).toThrow(RangeError)
+    expect(() => engine.setDeckEq('B', 'high', 6.1)).toThrow(RangeError)
 
     const snapshot = engine.snapshot()
-    expect(snapshot.decks.B.gain).toBe(1.5)
-    expect(snapshot.decks.B.playbackRate).toBe(0.5)
-    expect(snapshot.masterVolume).toBe(0)
-    expect(snapshot.crossfader).toBe(1)
+    expect(snapshot.decks.B.gain).toBe(1)
+    expect(snapshot.decks.B.playbackRate).toBe(1)
+    expect(snapshot.masterVolume).toBe(0.8)
+    expect(snapshot.crossfader).toBe(0)
+  })
+
+  it('rejects seeks beyond the decoded duration without changing playback', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('A', fakeFile('track.mp3'))
+    await engine.seek('A', 5)
+
+    await expect(engine.seek('A', 31)).rejects.toThrow(RangeError)
+
+    expect(engine.snapshot().decks.A).toMatchObject({
+      name: 'track.mp3',
+      duration: 30,
+      playing: false,
+      position: 5,
+    })
   })
 
   it('keeps the latest track when overlapping loads finish out of order', async () => {
@@ -207,6 +238,51 @@ describe('DeckEngine mixer routing', () => {
 
     await expect(engine.play('A')).rejects.toThrow('Audio permission denied')
     expect(engine.snapshot().decks.A.playing).toBe(false)
+  })
+
+  it('rolls back source state when AudioBufferSourceNode.start throws', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('A', fakeFile('track.mp3'))
+    context.startError = new Error('Source start failed')
+
+    await expect(engine.play('A')).rejects.toThrow('Source start failed')
+    expect(engine.snapshot().decks.A).toMatchObject({ playing: false, position: 0 })
+    expect(context.sources[0].disconnected).toBe(true)
+
+    context.startError = null
+    await expect(engine.play('A')).resolves.toBeUndefined()
+    expect(engine.snapshot().decks.A.playing).toBe(true)
+  })
+
+  it('awaits and reports a failed restart when seeking during playback', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    await engine.loadFile('A', fakeFile('track.mp3'))
+    await engine.play('A')
+    context.currentTime = 4
+    context.startError = new Error('Seek restart failed')
+
+    await expect(engine.seek('A', 12)).rejects.toThrow('Seek restart failed')
+    expect(engine.snapshot().decks.A).toMatchObject({ playing: false, position: 12 })
+  })
+
+  it('starts at the exact decoded duration and reports its natural end', async () => {
+    const context = new FakeContext()
+    const engine = new DeckEngine(context as unknown as AudioContext)
+    const ended: number[] = []
+    engine.onEnded((_deckId, position) => ended.push(position))
+    await engine.loadFile('A', fakeFile('track.mp3'))
+    await engine.seek('A', 30)
+
+    await engine.play('A')
+
+    expect(context.sources).toHaveLength(1)
+    expect(context.sources[0].startOffset).toBe(30)
+    expect(engine.snapshot().decks.A.playing).toBe(true)
+    context.sources[0].onended?.()
+    expect(engine.snapshot().decks.A).toMatchObject({ playing: false, position: 0 })
+    expect(ended).toEqual([30])
   })
 
   it('loads a catalog track from its served URL', async () => {
@@ -241,20 +317,12 @@ describe('DeckEngine mixer routing', () => {
     }
   })
 
-  it('routes the master bus through a limiter for final peak protection', () => {
+  it('routes master gain directly to the destination without automatic dynamics processing', () => {
     const context = new FakeContext()
     void new DeckEngine(context as unknown as AudioContext)
 
-    expect(context.compressors).toHaveLength(1)
-    const limiter = context.compressors[0]
-    expect(limiter.threshold.value).toBeLessThan(0)
-    expect(limiter.ratio.value).toBeGreaterThanOrEqual(20)
-    expect(context.waveShapers).toHaveLength(1)
-    expect(context.waveShapers[0].oversample).toBe('4x')
-    const ceiling = context.waveShapers[0].curve
-    expect(ceiling).not.toBeNull()
-    expect(Math.max(...ceiling!)).toBeLessThanOrEqual(0.95)
-    expect(Math.min(...ceiling!)).toBeGreaterThanOrEqual(-0.95)
+    expect(context.gains).toHaveLength(5)
+    expect(context.gains[0].connections).toEqual([context.destination])
   })
 
   it('staged load failure leaves the previous track fully intact', async () => {

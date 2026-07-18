@@ -57,6 +57,18 @@ function audioPort(): RuntimeAudioPort {
     setCrossfader: vi.fn(async () => undefined),
     setMasterGain: vi.fn(async () => undefined),
     panic: vi.fn(async () => ({ A: position(12), B: position(0) })),
+    getGrid: vi.fn(() => ({
+      timeSignature: '4/4',
+      beatsPerBar: 4,
+      bpm: 120,
+      confidence: 0.8,
+      beatsSeconds: [0, 0.5, 1, 1.5],
+      downbeatsSeconds: [0],
+      barsSeconds: [0],
+      sections: [],
+      phrases: [],
+      chords: [{ startSeconds: 0, endSeconds: 2, symbol: 'C', degree: 'I', confidence: 0.6 }],
+    })),
   }
 }
 
@@ -141,7 +153,11 @@ describe('CommandDispatcher', () => {
     }), context)
     expect(messages(hello)[0]).toMatchObject({
       state: 'completed',
-      result: { protocolVersion: '1.0', role: 'ui' },
+      result: {
+        protocolVersion: '1.0',
+        role: 'ui',
+        capabilities: { grid: { source: 'analysis' } },
+      },
     })
 
     const state = await dispatcher.handle(request('state', 'state.get'), context)
@@ -285,6 +301,30 @@ describe('CommandDispatcher', () => {
     expect(store.getSnapshot().decks.A.transport.phase).toBe('ready')
   })
 
+  it('reports an out-of-duration seek as E_OUT_OF_RANGE without changing runtime playback', async () => {
+    const { dispatcher, context, store, audio } = setup()
+    bindDeck(store)
+    const before = store.getSnapshot().decks.A.playback.position
+    vi.mocked(audio.seek).mockRejectedValue(new RuntimeAudioError({
+      code: 'E_OUT_OF_RANGE',
+      retryable: false,
+      message: 'sourceSeconds exceeds duration.',
+    }))
+
+    const result = messages(await dispatcher.handle(request('seek-too-far', 'deck.seek', {
+      deckId: 'A',
+      target: { type: 'sourceSeconds', sourceSeconds: 181 },
+      resume: 'pause',
+    }), context))
+
+    expect(result.at(-1)).toMatchObject({
+      event: 'intent.failed',
+      error: { code: 'E_OUT_OF_RANGE' },
+    })
+    expect(store.getSnapshot().decks.A.playback.position).toEqual(before)
+    expect(store.getSnapshot().decks.A.transport.phase).toBe('ready')
+  })
+
   it('validates ranges and atomically applies gain, EQ, velocity, seek, and mixer values', async () => {
     const { dispatcher, context, store, audio } = setup()
     bindDeck(store)
@@ -294,11 +334,17 @@ describe('CommandDispatcher', () => {
     ))[0]
     expect(invalid).toMatchObject({ error: { code: 'E_OUT_OF_RANGE' } })
 
-    const invalidEq = messages(await dispatcher.handle(
-      request('bad-eq', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: -12.1 }),
+    const invalidEqLow = messages(await dispatcher.handle(
+      request('bad-eq-low', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: -26.1 }),
       context,
     ))[0]
-    expect(invalidEq).toMatchObject({ error: { code: 'E_OUT_OF_RANGE' } })
+    expect(invalidEqLow).toMatchObject({ error: { code: 'E_OUT_OF_RANGE' } })
+
+    const invalidEqHigh = messages(await dispatcher.handle(
+      request('bad-eq-high', 'deck.setEq', { deckId: 'A', band: 'high', gainDb: 6.1 }),
+      context,
+    ))[0]
+    expect(invalidEqHigh).toMatchObject({ error: { code: 'E_OUT_OF_RANGE' } })
 
     const invalidBand = messages(await dispatcher.handle(
       request('bad-eq-band', 'deck.setEq', { deckId: 'A', band: 'bass', gainDb: 0 }),
@@ -307,9 +353,9 @@ describe('CommandDispatcher', () => {
     expect(invalidBand).toMatchObject({ error: { code: 'E_INVALID_PARAMS' } })
 
     await dispatcher.handle(request('gain', 'deck.setGain', { deckId: 'A', gain: 0.7 }), context)
-    await dispatcher.handle(request('eq-low', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: -12 }), context)
+    await dispatcher.handle(request('eq-low', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: -26 }), context)
     await dispatcher.handle(request('eq-mid', 'deck.setEq', { deckId: 'A', band: 'mid', gainDb: 2.5 }), context)
-    await dispatcher.handle(request('eq-high', 'deck.setEq', { deckId: 'A', band: 'high', gainDb: 12 }), context)
+    await dispatcher.handle(request('eq-high', 'deck.setEq', { deckId: 'A', band: 'high', gainDb: 6 }), context)
     await dispatcher.handle(request('velocity', 'deck.setVelocity', { deckId: 'A', velocity: 1.25 }), context)
     await dispatcher.handle(request('seek', 'deck.seek', {
       deckId: 'A', target: { type: 'sourceSeconds', sourceSeconds: 32 }, resume: 'pause',
@@ -319,16 +365,24 @@ describe('CommandDispatcher', () => {
 
     const snapshot = store.getSnapshot()
     expect(snapshot.decks.A.gain).toBe(0.7)
-    expect(snapshot.decks.A.eq).toEqual({ lowDb: -12, midDb: 2.5, highDb: 12 })
-    expect(audio.setEq).toHaveBeenNthCalledWith(1, 'A', 'low', -12)
+    expect(snapshot.decks.A.eq).toEqual({ lowDb: -26, midDb: 2.5, highDb: 6 })
+    expect(audio.setEq).toHaveBeenNthCalledWith(1, 'A', 'low', -26)
     expect(audio.setEq).toHaveBeenNthCalledWith(2, 'A', 'mid', 2.5)
-    expect(audio.setEq).toHaveBeenNthCalledWith(3, 'A', 'high', 12)
+    expect(audio.setEq).toHaveBeenNthCalledWith(3, 'A', 'high', 6)
     expect(snapshot.decks.A.playback.configuredVelocity).toBe(1.25)
     expect(snapshot.decks.A.playback.position.sourceSeconds).toBe(32)
     expect(snapshot.mixer.crossfader.effective).toBe(0.5)
     expect(snapshot.mixer.crossfader.curve).toBe('dj')
     expect(snapshot.mixer.masterGain).toBe(0.8)
     expect(snapshot.intents).toEqual({})
+
+    await dispatcher.handle(request('eq-low-reset', 'deck.setEq', { deckId: 'A', band: 'low', gainDb: 0 }), context)
+    await dispatcher.handle(request('eq-mid-reset', 'deck.setEq', { deckId: 'A', band: 'mid', gainDb: 0 }), context)
+    await dispatcher.handle(request('eq-high-reset', 'deck.setEq', { deckId: 'A', band: 'high', gainDb: 0 }), context)
+    expect(store.getSnapshot().decks.A.eq).toEqual({ lowDb: 0, midDb: 0, highDb: 0 })
+    expect(audio.setEq).toHaveBeenNthCalledWith(4, 'A', 'low', 0)
+    expect(audio.setEq).toHaveBeenNthCalledWith(5, 'A', 'mid', 0)
+    expect(audio.setEq).toHaveBeenNthCalledWith(6, 'A', 'high', 0)
   })
 
   it('cancels scheduled work and executes panic through ack and terminal events', async () => {
@@ -439,6 +493,22 @@ describe('CommandDispatcher', () => {
     expect(store.getSnapshot().decks.A.binding?.bindingId).toBe('bind-2')
   })
 
+  it('finalizes audio publication only after the runtime binding commits', async () => {
+    const { store, audio, dispatcher, context } = setup()
+    const observedBindings: Array<string | null> = []
+    vi.mocked(audio.load).mockResolvedValueOnce({
+      binding: binding('bind-atomic'),
+      position: position(0),
+      finalize: () => observedBindings.push(store.getSnapshot().decks.A.binding?.bindingId ?? null),
+    })
+
+    await dispatcher.handle(request('atomic-load', 'deck.load', {
+      deckId: 'A', source: { kind: 'catalog', trackId: 'new' },
+    }), context)
+
+    expect(observedBindings).toEqual(['bind-atomic'])
+  })
+
   it('cancels old-binding work on commit and routes bindingChanged to its owner', async () => {
     const { store, audio, dispatcher } = setup()
     bindDeck(store)
@@ -528,5 +598,47 @@ describe('CommandDispatcher', () => {
     expect(messages(await pendingB)[0]).toMatchObject({ event: 'intent.completed' })
     expect(store.getSnapshot().decks.A.transport.phase).toBe('ready')
     expect(store.getSnapshot().decks.B.transport.phase).toBe('playing')
+  })
+
+  describe('deck.getGrid', () => {
+    it('returns the cached grid with the current bindingId for an analyzed deck', async () => {
+      const { dispatcher, context, store } = setup()
+      bindDeck(store, 'A')
+      const result = messages(await dispatcher.handle(request('grid', 'deck.getGrid', { deckId: 'A' }), context))
+      expect(result[0]).toMatchObject({
+        state: 'completed',
+        result: {
+          bindingId: 'bind-1',
+          bpm: 120,
+          beatsSeconds: [0, 0.5, 1, 1.5],
+          chords: [{ degree: 'I' }],
+        },
+      })
+    })
+
+    it('rejects an empty deck with E_DECK_EMPTY', async () => {
+      const { dispatcher, context } = setup()
+      const result = messages(await dispatcher.handle(request('grid', 'deck.getGrid', { deckId: 'B' }), context))
+      expect(result[0]).toMatchObject({ state: 'rejected', error: { code: 'E_DECK_EMPTY' } })
+    })
+
+    it('rejects an analysis-less binding with E_ANALYSIS_UNAVAILABLE', async () => {
+      const { dispatcher, context, store } = setup()
+      store.update((draft) => {
+        draft.decks.A.binding = { ...binding(), analysis: null }
+        draft.decks.A.transport.phase = 'ready'
+      })
+      const result = messages(await dispatcher.handle(request('grid', 'deck.getGrid', { deckId: 'A' }), context))
+      expect(result[0]).toMatchObject({ state: 'rejected', error: { code: 'E_ANALYSIS_UNAVAILABLE' } })
+    })
+
+    it('rejects queries carrying mutation preconditions', async () => {
+      const { dispatcher, context, store } = setup()
+      bindDeck(store, 'A')
+      const result = messages(
+        await dispatcher.handle(request('grid', 'deck.getGrid', { deckId: 'A' }, { expectedRevision: 1 }), context),
+      )
+      expect(result[0]).toMatchObject({ state: 'rejected', error: { code: 'E_INVALID_PARAMS' } })
+    })
   })
 })

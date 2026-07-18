@@ -25,18 +25,15 @@ class FakeBiquad {
   connect(): void {}
 }
 
-class FakeWaveShaper {
-  curve: Float32Array | null = null
-  oversample: OverSampleType = 'none'
-  connect(): void {}
-}
-
 class FakeSource {
   buffer: AudioBuffer | null = null
   playbackRate = new FakeParam()
   onended: (() => void) | null = null
   connect(): void {}
-  start(): void {}
+  constructor(private readonly context: FakeContext) {}
+  start(): void {
+    if (this.context.startError) throw this.context.startError
+  }
   stop(): void {}
   disconnect(): void {}
 }
@@ -50,20 +47,10 @@ class FakeContext {
   deferredDecode = false
   decodeResolvers: Array<(buffer: AudioBuffer) => void> = []
   decodedCount = 0
+  startError: Error | null = null
 
   createGain(): FakeGain {
     return new FakeGain()
-  }
-
-  createDynamicsCompressor() {
-    return {
-      threshold: new FakeParam(),
-      knee: new FakeParam(),
-      ratio: new FakeParam(),
-      attack: new FakeParam(),
-      release: new FakeParam(),
-      connect(): void {},
-    }
   }
 
   createBiquadFilter(): FakeBiquad {
@@ -72,12 +59,8 @@ class FakeContext {
     return filter
   }
 
-  createWaveShaper(): FakeWaveShaper {
-    return new FakeWaveShaper()
-  }
-
   createBufferSource(): FakeSource {
-    const source = new FakeSource()
+    const source = new FakeSource(this)
     this.sources.push(source)
     return source
   }
@@ -186,11 +169,11 @@ describe('DeckEngineAudioPort', () => {
   it('maps VDAP EQ changes onto the selected deck filters', async () => {
     const { context, port } = createPort()
 
-    await port.setEq('B', 'low', -9)
+    await port.setEq('B', 'low', -26)
     await port.setEq('B', 'mid', 3.5)
-    await port.setEq('B', 'high', 7)
+    await port.setEq('B', 'high', 6)
 
-    expect(context.biquads.slice(3).map((filter) => filter.gain.value)).toEqual([-9, 3.5, 7])
+    expect(context.biquads.slice(3).map((filter) => filter.gain.value)).toEqual([-26, 3.5, 6])
     expect(context.biquads.slice(0, 3).map((filter) => filter.gain.value)).toEqual([0, 0, 0])
   })
 
@@ -199,6 +182,7 @@ describe('DeckEngineAudioPort', () => {
     const result = await port.load({
       deckId: 'A',
       source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
     })
     expect(result.binding.trackId).toBe('track-1')
     expect(result.binding.source).toEqual({
@@ -284,16 +268,35 @@ describe('DeckEngineAudioPort', () => {
 
   it('plays, tracks position with the fake clock, and pauses', async () => {
     const { context, port } = createPort()
-    await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })
     await port.play('A')
     context.currentTime = 5
     const paused = await port.pause('A')
     expect(paused.sourceSeconds).toBeCloseTo(5)
   })
 
+  it('applies an in-range initial position exactly', async () => {
+    const { port } = createPort()
+    const result = await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:track', title: 'Track' },
+      initialPosition: { sourceSeconds: 12.25 },
+    })
+
+    expect(result.position.sourceSeconds).toBe(12.25)
+  })
+
   it('rejects beat-grid seeks until analysis is bound', async () => {
     const { port } = createPort()
-    await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })
     await expect(
       port.seek('A', { target: { type: 'beat', beatIndex: 4 }, resume: 'keep' }),
     ).rejects.toSatisfy(
@@ -326,9 +329,58 @@ describe('DeckEngineAudioPort', () => {
     expect(analysis?.grid).toEqual({ available: true, confidence: 0.8, status: 'partial' })
   })
 
+  it('preserves an unknown analysis confidence as null in the binding and full grid', async () => {
+    const fixture = analysisFixture()
+    fixture.capabilities.beatGrid.confidence = null
+    const { port } = createPort({ fetchAnalysis: () => Promise.resolve(fixture) })
+
+    const result = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+    })
+
+    expect(result.binding.analysis?.grid.confidence).toBeNull()
+    expect(port.getGrid(result.binding.bindingId)?.confidence).toBeNull()
+  })
+
+  it('reports an unknown first downbeat as null instead of substituting the first beat', async () => {
+    const fixture = analysisFixture()
+    fixture.tempo.downbeatsSeconds = []
+    const { port } = createPort({ fetchAnalysis: () => Promise.resolve(fixture) })
+
+    const result = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+    })
+
+    expect(result.binding.analysis?.firstDownbeatSeconds).toBeNull()
+  })
+
+  it('caches a full grid for deck.getGrid and evicts it on unload', async () => {
+    const { port } = createPort({ fetchAnalysis: () => Promise.resolve(analysisFixture()) })
+    const result = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: true,
+    })
+    const grid = port.getGrid(result.binding.bindingId)
+    expect(grid).not.toBeNull()
+    expect(grid?.beatsSeconds).toEqual([0.5, 1, 1.5, 2])
+    expect(grid?.downbeatsSeconds).toEqual([0.5])
+    expect(grid?.bpm).toBe(120)
+    expect(grid?.confidence).toBe(0.8)
+
+    await port.unload('A')
+    expect(port.getGrid(result.binding.bindingId)).toBeNull()
+  })
+
   it('degrades to a null analysis binding unless the load requires analysis', async () => {
     const { port } = createPort()
-    const result = await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    const result = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })
     expect(result.binding.analysis).toBeNull()
     await expect(
       port.load({
@@ -340,6 +392,184 @@ describe('DeckEngineAudioPort', () => {
       (cause) =>
         cause instanceof RuntimeAudioError && cause.error.code === 'E_ANALYSIS_UNAVAILABLE',
     )
+  })
+
+  it('uses the source-specific requireAnalysis default without overriding an explicit false', async () => {
+    const { port } = createPort()
+
+    await expect(port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+    })).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError && cause.error.code === 'E_ANALYSIS_UNAVAILABLE',
+    )
+
+    await expect(port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })).resolves.toMatchObject({ binding: { analysis: null } })
+
+    await expect(port.load({
+      deckId: 'B',
+      source: { kind: 'url', url: 'blob:url', title: 'URL Track' },
+    })).resolves.toMatchObject({ binding: { analysis: null } })
+  })
+
+  it.each([
+    ['harmony', (analysis: TrackAnalysis) => ({ ...analysis, harmony: {} })],
+    ['structure', (analysis: TrackAnalysis) => ({ ...analysis, structure: { sections: null, phrases: [] } })],
+    ['time signature', (analysis: TrackAnalysis) => ({
+      ...analysis,
+      tempo: { ...analysis.tempo, timeSignature: 'unknown' },
+    })],
+    ['beat order', (analysis: TrackAnalysis) => ({
+      ...analysis,
+      tempo: { ...analysis.tempo, beatsSeconds: [1, 0.5, 1.5, 2] },
+    })],
+    ['section label', (analysis: TrackAnalysis) => ({
+      ...analysis,
+      structure: {
+        ...analysis.structure,
+        sections: [{
+          startSeconds: 0,
+          endSeconds: 4,
+          startBeat: 0,
+          endBeat: 4,
+          startBar: 0,
+          endBar: 1,
+          label: '' as TrackAnalysis['structure']['sections'][number]['label'],
+          rawLabel: '',
+          confidence: 1,
+          energy: 0.5,
+        }],
+      },
+    })],
+  ])('rejects malformed %s analysis before replacing live audio or its grid', async (_field, corrupt) => {
+    let returned = analysisFixture()
+    const { context, engine, port } = createPort({
+      fetchAnalysis: () => Promise.resolve(returned),
+    })
+    const old = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+    })
+    await port.play('A')
+    context.currentTime = 4
+    returned = corrupt(analysisFixture()) as TrackAnalysis
+
+    await expect(port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+    })).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError && cause.error.code === 'E_ANALYSIS_UNAVAILABLE',
+    )
+
+    expect(engine.snapshot().decks.A).toMatchObject({
+      name: 'Test Track',
+      playing: true,
+      position: 4,
+    })
+    expect(port.getGrid(old.binding.bindingId)?.beatsSeconds).toEqual([0.5, 1, 1.5, 2])
+  })
+
+  it('loads audio without analysis when fetched analysis is malformed but optional', async () => {
+    const malformed = {
+      ...analysisFixture(),
+      tempo: { ...analysisFixture().tempo, beatsSeconds: [1, 0.5, 2] },
+    } as TrackAnalysis
+    const { engine, port } = createPort({ fetchAnalysis: () => Promise.resolve(malformed) })
+
+    const loaded = await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })
+
+    expect(loaded.binding).toMatchObject({ trackId: 'track-1', sha256: null, analysis: null })
+    expect(engine.snapshot().decks.A).toMatchObject({ name: 'Test Track', loaded: true })
+  })
+
+  it('rejects an initial position beyond duration before replacing live audio', async () => {
+    const { context, engine, port } = createPort()
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:old', title: 'Old Track' },
+    })
+    await port.play('A')
+    context.currentTime = 4
+
+    await expect(port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:new', title: 'New Track' },
+      initialPosition: { sourceSeconds: 31 },
+    })).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError && cause.error.code === 'E_OUT_OF_RANGE',
+    )
+
+    expect(engine.snapshot().decks.A).toMatchObject({
+      name: 'Old Track',
+      playing: true,
+      position: 4,
+    })
+  })
+
+  it('rejects a seek beyond duration without applying resume or changing position', async () => {
+    const { context, engine, port } = createPort()
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:track', title: 'Track' },
+    })
+    await port.play('A')
+    context.currentTime = 6
+
+    await expect(port.seek('A', {
+      target: { type: 'sourceSeconds', sourceSeconds: 31 },
+      resume: 'pause',
+    })).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError && cause.error.code === 'E_OUT_OF_RANGE',
+    )
+
+    expect(engine.snapshot().decks.A).toMatchObject({ playing: true, position: 6 })
+  })
+
+  it('rejects a playing seek when the required restart fails', async () => {
+    const { context, engine, port } = createPort()
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:track', title: 'Track' },
+    })
+    await port.play('A')
+    context.currentTime = 3
+    context.startError = new Error('restart denied')
+
+    await expect(port.seek('A', {
+      target: { type: 'sourceSeconds', sourceSeconds: 9 },
+      resume: 'keep',
+    })).rejects.toSatisfy(
+      (cause) => cause instanceof RuntimeAudioError
+        && cause.error.code === 'E_AUDIO_LOCKED'
+        && cause.error.message === 'restart denied',
+    )
+    expect(engine.snapshot().decks.A).toMatchObject({ playing: false, position: 9 })
+  })
+
+  it('publishes a silently committed load only when finalized', async () => {
+    const { engine, port } = createPort()
+    const observed: string[] = []
+    const unsubscribe = engine.subscribe((snapshot) => observed.push(snapshot.decks.A.name ?? 'empty'))
+    observed.length = 0
+
+    const loaded = await port.load({
+      deckId: 'A',
+      source: { kind: 'url', url: 'blob:track', title: 'Track' },
+    })
+    expect(observed).toEqual([])
+
+    loaded.finalize?.()
+    loaded.finalize?.()
+    expect(observed).toEqual(['Track'])
+    unsubscribe()
   })
 
   it('rejects a superseded load even after the newer load has committed audio', async () => {
@@ -402,7 +632,11 @@ describe('DeckEngineAudioPort', () => {
     port.onTrackEnded((deckId, position) =>
       ended.push({ deckId, sourceSeconds: position.sourceSeconds }),
     )
-    await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })
     await port.play('A')
     context.sources.at(-1)?.onended?.()
     expect(ended).toEqual([{ deckId: 'A', sourceSeconds: 30 }])
@@ -410,7 +644,11 @@ describe('DeckEngineAudioPort', () => {
 
   it('panic pauses both decks and reports their positions', async () => {
     const { context, port } = createPort()
-    await port.load({ deckId: 'A', source: { kind: 'catalog', trackId: 'track-1' } })
+    await port.load({
+      deckId: 'A',
+      source: { kind: 'catalog', trackId: 'track-1' },
+      requireAnalysis: false,
+    })
     await port.play('A')
     context.currentTime = 3
     const positions = await port.panic(undefined)

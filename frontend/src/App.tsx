@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { RuntimeState } from '@vibraxis/shared/vdap'
 import { DeckEngine, type DeckId, type DeckSnapshot } from './audio/DeckEngine'
-import { calculateTempoSync, interpretedBpm, type TempoMultiplier } from './audio/audioMath'
+import {
+  calculateTempoSync,
+  interpretedBpm,
+  type TempoMultiplier,
+  type TempoSyncResult,
+} from './audio/audioMath'
 import { fetchCatalog, type CatalogTrack } from './catalog'
 import { Deck, type EqBand } from './components/Deck'
 import { TrackLibrary } from './components/TrackLibrary'
@@ -9,6 +14,7 @@ import { createRuntime, runtimeNow } from './runtime/createRuntime'
 import { DeckObjectUrls } from './runtime/DeckObjectUrls'
 import { settleMutation } from './runtime/settleMutation'
 import { VdapClient, VdapClientError } from './runtime/VdapClient'
+import { useDeckVisuals } from './visuals/useDeckVisuals'
 import './styles.css'
 
 const emptyDeckView = (id: DeckId): DeckSnapshot => ({
@@ -21,6 +27,17 @@ const emptyDeckView = (id: DeckId): DeckSnapshot => ({
   playing: false,
   loaded: false,
 })
+
+export async function applyTempoSync(
+  masterBpm: number,
+  masterPlaybackRate: number,
+  followerBpm: number,
+  mutateVelocity: (velocity: number) => Promise<void>,
+): Promise<TempoSyncResult> {
+  const result = calculateTempoSync(masterBpm, masterPlaybackRate, followerBpm)
+  await mutateVelocity(result.playbackRate)
+  return result
+}
 
 export default function App() {
   const engine = useMemo(() => new DeckEngine(), [])
@@ -89,6 +106,11 @@ export default function App() {
     return () => controller.abort()
   }, [])
 
+  const deckVisuals: Record<DeckId, ReturnType<typeof useDeckVisuals>> = {
+    A: useDeckVisuals('A', runtimeState?.decks.A.binding ?? null, client, engine),
+    B: useDeckVisuals('B', runtimeState?.decks.B.binding ?? null, client, engine),
+  }
+
   const anyPlaying =
     runtimeState !== null &&
     (runtimeState.decks.A.transport.phase === 'playing' ||
@@ -145,10 +167,13 @@ export default function App() {
 
   const seekDeck = (id: DeckId, seconds: number, resume: 'keep' | 'pause' = 'keep') =>
     run(async (vdap) => {
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        throw new RangeError('Seek position must be a non-negative finite number.')
+      }
       await settleMutation(
         vdap.mutate('deck.seek', {
           deckId: id,
-          target: { type: 'sourceSeconds', sourceSeconds: Math.max(0, seconds) },
+          target: { type: 'sourceSeconds', sourceSeconds: seconds },
           resume,
         }),
       )
@@ -162,23 +187,27 @@ export default function App() {
     if (!masterTrack || !followerTrack || !master) return
 
     run(async (vdap) => {
-      const result = calculateTempoSync(
+      const result = await applyTempoSync(
         interpretedBpm(masterTrack.bpm, tempoMultipliers[masterId]),
         master.playback.configuredVelocity,
         interpretedBpm(followerTrack.bpm, tempoMultipliers[followerId]),
+        async (velocity) => {
+          await settleMutation(vdap.mutate('deck.setVelocity', { deckId: followerId, velocity }))
+        },
       )
-      await settleMutation(vdap.mutate('deck.setVelocity', { deckId: followerId, velocity: result.playbackRate }))
       setSyncNotice(
-        result.exact
-          ? `Deck ${followerId} synced to Deck ${masterId} at ${result.targetBpm.toFixed(1)} BPM.`
-          : `Deck ${followerId} reached its speed limit (${result.playbackRate.toFixed(2)}×); exact ${result.targetBpm.toFixed(1)} BPM sync is unavailable.`,
+        `Deck ${followerId} synced to Deck ${masterId} at ${result.targetBpm.toFixed(1)} BPM.`,
       )
     })
   }
 
   const triggerCue = (id: DeckId) => {
     const cue = deckTrack(id)?.performancePads.find((pad) => pad.slot === selectedCueSlots[id])
-    seekDeck(id, cue?.sourceSeconds ?? 0, 'pause')
+    if (!cue) {
+      setError(`Deck ${id} pad ${selectedCueSlots[id]} has no assigned cue point.`)
+      return
+    }
+    seekDeck(id, cue.sourceSeconds, 'pause')
   }
 
   const triggerPerformancePad = (id: DeckId, slot: number, seconds: number) => {
@@ -264,6 +293,18 @@ export default function App() {
     },
     selectedCueSlot: selectedCueSlots[id],
     onPerformancePad: (slot: number, seconds: number) => triggerPerformancePad(id, slot, seconds),
+    waveform: deckVisuals[id].waveform,
+    waveformStatus: deckVisuals[id].waveformStatus,
+    waveformFailureReason: deckVisuals[id].waveformFailureReason,
+    grid: deckVisuals[id].grid,
+    gridStatus: deckVisuals[id].gridStatus,
+    gridFailureReason: deckVisuals[id].gridFailureReason,
+    timeline: deckVisuals[id].timeline,
+    estimatedGrid: runtimeState?.decks[id].binding?.analysis?.grid.status === 'partial',
+    gridConfidence:
+      deckVisuals[id].grid?.confidence ??
+      runtimeState?.decks[id].binding?.analysis?.grid.confidence ??
+      null,
   })
 
   const crossfader = runtimeState?.mixer.crossfader.effective ?? 0

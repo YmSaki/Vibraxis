@@ -1,7 +1,16 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import {
+  DECK_EQ_CENTER_GAIN_DB,
+  DECK_EQ_MAX_GAIN_DB,
+  DECK_EQ_MIN_GAIN_DB,
+  type DeckGrid,
+} from '@vibraxis/shared/vdap'
+import type { TrackTimeline } from '@vibraxis/shared/analysis'
 import type { DeckId, DeckSnapshot } from '../audio/DeckEngine'
 import { formatTime, interpretedBpm, type TempoMultiplier } from '../audio/audioMath'
+import type { WaveformBands } from '../audio/waveform'
 import type { CatalogTrack } from '../catalog'
+import { Waveform } from './Waveform'
 
 export type EqBand = 'low' | 'mid' | 'high'
 export type DeckEq = Record<EqBand, number>
@@ -27,6 +36,15 @@ type Props = {
   onTempoMultiplier: (value: TempoMultiplier) => void
   selectedCueSlot: number
   onPerformancePad: (slot: number, seconds: number) => void
+  waveform: WaveformBands | null
+  waveformStatus: 'idle' | 'building' | 'ready' | 'failed'
+  waveformFailureReason: string | null
+  grid: DeckGrid | null
+  gridStatus: 'idle' | 'loading' | 'ready' | 'failed'
+  gridFailureReason: string | null
+  timeline: TrackTimeline | null
+  estimatedGrid: boolean
+  gridConfidence: number | null
 }
 
 export function Deck({
@@ -50,6 +68,15 @@ export function Deck({
   onTempoMultiplier,
   selectedCueSlot,
   onPerformancePad,
+  waveform,
+  waveformStatus,
+  waveformFailureReason,
+  grid,
+  gridStatus,
+  gridFailureReason,
+  timeline,
+  estimatedGrid,
+  gridConfidence,
 }: Props) {
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -57,6 +84,7 @@ export function Deck({
     event.target.value = ''
   }
   const interpretedTempo = track ? interpretedBpm(track.bpm, tempoMultiplier) : null
+  const musical = timeline ? timeline.at(deck.position) : null
   const [seekDraft, setSeekDraft] = useState<number | null>(null)
   const seekDirty = useRef(false)
   const commitSeek = (value: number) => {
@@ -107,6 +135,32 @@ export function Deck({
           <span>/ {formatTime(deck.duration)}</span>
         </div>
       </div>
+
+      <Waveform
+        deckId={id}
+        accent={accent}
+        waveform={waveform}
+        waveformStatus={waveformStatus}
+        waveformFailureReason={waveformFailureReason}
+        grid={grid}
+        gridStatus={gridStatus}
+        gridFailureReason={gridFailureReason}
+        pads={track?.performancePads ?? []}
+        duration={deck.duration}
+        position={deck.position}
+        loaded={deck.loaded}
+        estimatedGrid={estimatedGrid}
+        gridConfidence={gridConfidence}
+        onSeek={onSeek}
+      />
+
+      {musical && (
+        <div className="timeline-readout" aria-label={`Deck ${id} musical position`}>
+          <span>BEAT <strong>{musical.beatIndex !== null ? musical.beatIndex + 1 : '—'}</strong></span>
+          <span>IN BAR <strong>{musical.beatInBar ?? '—'}</strong></span>
+          <span>BAR <strong>{musical.barIndex !== null ? musical.barIndex + 1 : '—'}</strong></span>
+        </div>
+      )}
 
       <input
         className="seek"
@@ -181,7 +235,7 @@ export function Deck({
           <div className="deck-eq__header">
             <div>
               <span>3 BAND EQ</span>
-              <small>−12 / 0 / +12 dB</small>
+              <small>−26 / 0 / +6 dB</small>
             </div>
             <button
               type="button"
@@ -198,13 +252,15 @@ export function Deck({
                 <input
                   aria-label={`Deck ${id} ${band === 'high' ? 'high' : band} EQ`}
                   type="range"
-                  min="-12"
-                  max="12"
+                  min={DECK_EQ_MIN_GAIN_DB}
+                  max={DECK_EQ_MAX_GAIN_DB}
                   step="0.5"
                   value={eq[band]}
                   onChange={(event) => onEq(band, Number(event.target.value))}
                 />
-                <span className="eq-band__scale" aria-hidden="true"><i>−12</i><b>0</b><i>+12</i></span>
+                <span className="eq-band__scale" aria-hidden="true">
+                  <i>−26</i><b>{DECK_EQ_CENTER_GAIN_DB}</b><i>+6</i>
+                </span>
               </label>
             ))}
           </div>

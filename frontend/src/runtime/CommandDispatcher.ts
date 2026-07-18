@@ -1,4 +1,6 @@
 import {
+  DECK_EQ_MAX_GAIN_DB,
+  DECK_EQ_MIN_GAIN_DB,
   VDAP_VERSION,
   type DeckId,
   type DeckLoadParams,
@@ -170,9 +172,7 @@ export class CommandDispatcher {
 
     if (request.command === 'session.hello') return this.hello(request, context)
     if (request.command === 'state.get') return this.stateGet(request)
-    if (request.command === 'deck.getGrid') {
-      return rejectedError(request.requestId, 'E_UNSUPPORTED_COMMAND', 'deck.getGrid is not in the P0 dispatcher slice.')
-    }
+    if (request.command === 'deck.getGrid') return this.getGrid(request)
 
     const snapshot = this.store.getSnapshot()
     if (
@@ -249,7 +249,10 @@ export class CommandDispatcher {
         role: context.role,
         profile: 'core',
         deckIds: ['A', 'B'],
-        capabilities: { velocity: { min: 0.5, max: 1.5, reverse: false } },
+        capabilities: {
+          velocity: { min: 0.5, max: 1.5, reverse: false },
+          grid: { source: 'analysis' },
+        },
         limits: {
           maxScheduleHorizonSeconds: 60,
           maxPendingIntents: 16,
@@ -259,6 +262,32 @@ export class CommandDispatcher {
         },
         revision: snapshot.revision,
       },
+    }
+  }
+
+  private getGrid(request: RuntimeRequestEnvelope): VdapOutboundMessage {
+    if (request.when !== undefined || request.expectedRevision !== undefined || request.expectedBindingId !== undefined) {
+      return rejectedError(request.requestId, 'E_INVALID_PARAMS', 'Queries cannot carry when or mutation preconditions.')
+    }
+    const deck = parseDeckId(request.params)
+    if ('error' in deck) return rejected(request.requestId, deck.error)
+    const state = this.store.getSnapshot().decks[deck.value]
+    if (!state.binding) return rejectedError(request.requestId, 'E_DECK_EMPTY', 'Deck has no binding.')
+    if (!state.binding.analysis) {
+      return rejectedError(request.requestId, 'E_ANALYSIS_UNAVAILABLE', 'The bound track has no analysis grid.')
+    }
+    const payload = this.audio.getGrid?.(state.binding.bindingId)
+    if (!payload) {
+      return rejectedError(request.requestId, 'E_ANALYSIS_UNAVAILABLE', 'No grid is cached for the current binding.')
+    }
+    const snapshot = this.store.getSnapshot()
+    return {
+      vdap: VDAP_VERSION,
+      kind: 'ack',
+      requestId: request.requestId,
+      state: 'completed',
+      revision: snapshot.revision,
+      result: { bindingId: state.binding.bindingId, ...payload },
     }
   }
 
@@ -352,6 +381,7 @@ export class CommandDispatcher {
         target.pads = { selectedSlot: 1, slots: [] }
       })
       if (!completion) return
+      loaded.finalize?.()
       this.routeForeignTerminals(completion.cancelled)
       return this.ownTerminal(completion.terminal)
     } catch (cause) {
@@ -530,7 +560,13 @@ export class CommandDispatcher {
     if (!isRecord(request.params) || !['low', 'mid', 'high'].includes(String(request.params.band))) {
       return rejectedError(request.requestId, 'E_INVALID_PARAMS', 'band must be low, mid, or high.')
     }
-    const gainDb = parseNumberParam(request.params, 'gainDb', -12, 12, false)
+    const gainDb = parseNumberParam(
+      request.params,
+      'gainDb',
+      DECK_EQ_MIN_GAIN_DB,
+      DECK_EQ_MAX_GAIN_DB,
+      false,
+    )
     if ('error' in gainDb) return rejected(request.requestId, gainDb.error)
     const precondition = this.deckPrecondition(request, deck.value)
     if (precondition) return rejected(request.requestId, precondition)

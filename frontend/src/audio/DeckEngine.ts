@@ -1,3 +1,4 @@
+import { DECK_EQ_MAX_GAIN_DB, DECK_EQ_MIN_GAIN_DB } from '@vibraxis/shared/vdap'
 import { clamp, djCrossfaderGains, equalPowerGains, MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from './audioMath'
 
 export type DeckId = 'A' | 'B'
@@ -35,8 +36,6 @@ type DeckGraph = {
   source: AudioBufferSourceNode | null
   inputGain: GainNode
   eqFilters: Record<DeckEqBand, BiquadFilterNode>
-  eqGainsDb: Record<DeckEqBand, number>
-  eqHeadroom: GainNode
   crossfadeGain: GainNode
   name: string | null
   gain: number
@@ -55,8 +54,6 @@ type EndedListener = (id: DeckId, positionSeconds: number) => void
 export class DeckEngine {
   private readonly context: AudioContext
   private readonly masterGain: GainNode
-  private readonly limiter: DynamicsCompressorNode
-  private readonly safetyCeiling: WaveShaperNode
   private readonly decks: Record<DeckId, DeckGraph>
   private readonly listeners = new Set<Listener>()
   private readonly endedListeners = new Set<EndedListener>()
@@ -70,21 +67,7 @@ export class DeckEngine {
     this.context = context
     this.masterGain = context.createGain()
     this.masterGain.gain.value = this.masterVolume
-    // Final peak protection: even with both decks at maximum gain through the
-    // crossfader center, the output must not clip. A hard-knee compressor just
-    // below 0 dBFS acts as the safety limiter required by the VDAP roadmap.
-    this.limiter = context.createDynamicsCompressor()
-    this.limiter.threshold.value = -1
-    this.limiter.knee.value = 0
-    this.limiter.ratio.value = 20
-    this.limiter.attack.value = 0.003
-    this.limiter.release.value = 0.25
-    this.safetyCeiling = context.createWaveShaper()
-    this.safetyCeiling.curve = createSafetyCeilingCurve()
-    this.safetyCeiling.oversample = '4x'
-    this.masterGain.connect(this.limiter)
-    this.limiter.connect(this.safetyCeiling)
-    this.safetyCeiling.connect(context.destination)
+    this.masterGain.connect(context.destination)
     this.decks = {
       A: this.createDeck(),
       B: this.createDeck(),
@@ -141,15 +124,25 @@ export class DeckEngine {
     return { deckId: id, name, buffer, loadGeneration }
   }
 
-  commitPreparedLoad(prepared: PreparedDeckLoad): DeckLoadReceipt | null {
+  commitPreparedLoad(
+    prepared: PreparedDeckLoad,
+    options: { emit?: boolean; initialOffset?: number } = {},
+  ): DeckLoadReceipt | null {
     const deck = this.decks[prepared.deckId]
     if (this.disposed || deck.loadGeneration !== prepared.loadGeneration) return null
-    this.stop(prepared.deckId)
+    this.stop(prepared.deckId, { emit: false })
     deck.buffer = prepared.buffer
     deck.name = prepared.name
-    deck.offset = 0
-    this.emit()
+    deck.offset = options.initialOffset ?? 0
+    if (options.emit !== false) this.emit()
     return { loadGeneration: prepared.loadGeneration }
+  }
+
+  /** Publishes a load committed with `emit: false` after canonical state commits. */
+  finalizePreparedLoad(id: DeckId, receipt: DeckLoadReceipt): boolean {
+    if (!this.isLoadCurrent(id, receipt)) return false
+    this.emit()
+    return true
   }
 
   discardPreparedLoad(prepared: PreparedDeckLoad): void {
@@ -181,7 +174,7 @@ export class DeckEngine {
     source.buffer = deck.buffer
     source.playbackRate.value = deck.playbackRate
     source.connect(deck.inputGain)
-    const sourceGeneration = ++deck.generation
+    const sourceGeneration = deck.generation + 1
     source.onended = () => {
       if (deck.generation !== sourceGeneration || !deck.playing) return
       const finalPosition = deck.buffer?.duration ?? this.positionFor(deck)
@@ -191,13 +184,23 @@ export class DeckEngine {
       this.emit()
       this.endedListeners.forEach((listener) => listener(id, finalPosition))
     }
-    const startOffset = clamp(deck.offset, 0, Math.max(0, deck.buffer.duration - 0.01))
+    const startOffset = deck.offset
+    const startedAt = this.context.currentTime
+    try {
+      source.start(0, startOffset)
+    } catch (error) {
+      source.onended = null
+      source.disconnect()
+      deck.starting = false
+      this.emit()
+      throw error
+    }
+    deck.generation = sourceGeneration
     deck.source = source
-    deck.startedAt = this.context.currentTime
+    deck.startedAt = startedAt
     deck.offset = startOffset
     deck.playing = true
     deck.starting = false
-    source.start(0, startOffset)
     this.emit()
   }
 
@@ -214,7 +217,7 @@ export class DeckEngine {
     this.emit()
   }
 
-  stop(id: DeckId): void {
+  stop(id: DeckId, options: { emit?: boolean } = {}): void {
     const deck = this.decks[id]
     deck.playing = false
     deck.starting = false
@@ -225,7 +228,7 @@ export class DeckEngine {
       deck.source.disconnect()
       deck.source = null
     }
-    this.emit()
+    if (options.emit !== false) this.emit()
   }
 
   unload(id: DeckId): void {
@@ -237,25 +240,28 @@ export class DeckEngine {
     this.emit()
   }
 
-  seek(id: DeckId, seconds: number): void {
+  async seek(id: DeckId, seconds: number): Promise<void> {
     const deck = this.decks[id]
+    assertInRange(seconds, 0, deck.buffer?.duration ?? 0, 'Seek position')
     const wasPlaying = deck.playing
     if (wasPlaying) this.pause(id)
-    deck.offset = clamp(seconds, 0, deck.buffer?.duration ?? 0)
-    if (wasPlaying) void this.play(id)
+    deck.offset = seconds
+    if (wasPlaying) await this.play(id)
     else this.emit()
   }
 
   setDeckGain(id: DeckId, value: number): void {
+    assertInRange(value, 0, 1.5, 'Deck gain')
     const deck = this.decks[id]
-    deck.gain = clamp(value, 0, 1.5)
+    deck.gain = value
     deck.inputGain.gain.setTargetAtTime(deck.gain, this.context.currentTime, 0.01)
     this.emit()
   }
 
   setPlaybackRate(id: DeckId, value: number): void {
+    assertInRange(value, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, 'Playback rate')
     const deck = this.decks[id]
-    const next = clamp(value, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE)
+    const next = value
     if (deck.playing) {
       deck.offset = this.positionFor(deck)
       deck.startedAt = this.context.currentTime
@@ -266,29 +272,23 @@ export class DeckEngine {
   }
 
   setCrossfader(value: number, curve: CrossfaderCurve = 'dj'): void {
-    this.crossfader = clamp(value, -1, 1)
+    assertInRange(value, -1, 1, 'Crossfader')
+    this.crossfader = value
     this.crossfaderCurve = curve
     this.applyCrossfader()
     this.emit()
   }
 
   setDeckEq(id: DeckId, band: DeckEqBand, gainDb: number): void {
-    const gain = clamp(gainDb, -12, 12)
+    assertInRange(gainDb, DECK_EQ_MIN_GAIN_DB, DECK_EQ_MAX_GAIN_DB, 'EQ gain')
     const deck = this.decks[id]
-    const now = this.context.currentTime
-    deck.eqGainsDb[band] = gain
-    deck.eqFilters[band].gain.setTargetAtTime(gain, now, 0.01)
-    // Preserve headroom when users boost multiple overlapping bands. Positive
-    // EQ still changes the tonal balance, but cannot multiply the deck level
-    // unchecked before the master limiter.
-    const positiveBoostDb = Object.values(deck.eqGainsDb)
-      .reduce((total, value) => total + Math.max(0, value), 0)
-    deck.eqHeadroom.gain.setTargetAtTime(10 ** (-positiveBoostDb / 20), now, 0.01)
+    deck.eqFilters[band].gain.setTargetAtTime(gainDb, this.context.currentTime, 0.01)
     this.emit()
   }
 
   setMasterVolume(value: number): void {
-    this.masterVolume = clamp(value, 0, 1)
+    assertInRange(value, 0, 1, 'Master volume')
+    this.masterVolume = value
     this.masterGain.gain.setTargetAtTime(this.masterVolume, this.context.currentTime, 0.01)
     this.emit()
   }
@@ -297,6 +297,15 @@ export class DeckEngine {
     this.listeners.add(listener)
     listener(this.snapshot())
     return () => this.listeners.delete(listener)
+  }
+
+  /**
+   * Returns the decoded buffer currently loaded on a deck, or null when empty.
+   * Exposed as a read-only reference for one-shot waveform generation at load
+   * time; the PCM is never copied into the periodic mixer snapshot.
+   */
+  getTrackBuffer(id: DeckId): AudioBuffer | null {
+    return this.decks[id].buffer
   }
 
   /** Fires when a deck reaches the natural end of its track. */
@@ -344,21 +353,17 @@ export class DeckEngine {
     highEq.type = 'highshelf'
     highEq.frequency.value = 4_000
     highEq.gain.value = 0
-    const eqHeadroom = this.context.createGain()
     const crossfadeGain = this.context.createGain()
     inputGain.connect(lowEq)
     lowEq.connect(midEq)
     midEq.connect(highEq)
-    highEq.connect(eqHeadroom)
-    eqHeadroom.connect(crossfadeGain)
+    highEq.connect(crossfadeGain)
     crossfadeGain.connect(this.masterGain)
     return {
       buffer: null,
       source: null,
       inputGain,
       eqFilters: { low: lowEq, mid: midEq, high: highEq },
-      eqGainsDb: { low: 0, mid: 0, high: 0 },
-      eqHeadroom,
       crossfadeGain,
       name: null,
       gain: 1,
@@ -414,11 +419,8 @@ export class DeckEngine {
   }
 }
 
-function createSafetyCeilingCurve(size = 65_536, ceiling = 0.95): Float32Array<ArrayBuffer> {
-  const curve = new Float32Array(new ArrayBuffer(size * Float32Array.BYTES_PER_ELEMENT))
-  for (let index = 0; index < size; index += 1) {
-    const input = (index / (size - 1)) * 2 - 1
-    curve[index] = clamp(input, -ceiling, ceiling)
+function assertInRange(value: number, minimum: number, maximum: number, label: string): void {
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    throw new RangeError(`${label} must be between ${minimum} and ${maximum}.`)
   }
-  return curve
 }

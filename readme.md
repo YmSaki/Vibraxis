@@ -26,6 +26,15 @@ analyzed library onto Deck A or B. Every control on the golden path — loading,
 transport, gain, tempo, crossfader, master, **PANIC** — runs through the VDAP
 runtime, not directly against the audio engine.
 
+Each deck shows a full-song **three-band overview waveform** (LOW = red/orange,
+MID = green, HI = blue/cyan) with a playhead, beat/downbeat/section/pad overlays,
+and click-or-drag scrubbing that seeks through the VDAP `deck.seek` path. Beats,
+bars, sections, and chord degree are read through one shared `TrackTimeline`
+model, and the full beat grid is fetched on demand with the `deck.getGrid` query
+so the large arrays never ride along in every runtime snapshot. Estimated grids
+are badged as such, and tracks without analysis (e.g. local file uploads) still
+render a waveform and degrade gracefully to no overlay.
+
 Verify everything (protocol docs, contract schemas, TypeScript, unit and
 integration tests, production build):
 
