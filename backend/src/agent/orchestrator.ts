@@ -224,7 +224,9 @@ export class AgentOrchestrator {
       result = this.deps.deterministic.decide(context, intent);
     } catch (error) {
       stage.status = "failed";
-      return rejected("deterministic", [stage], fail("invalid_intent", `deterministic engine rejected input: ${String(error)}`));
+      const failure = fail("invalid_intent", `deterministic engine rejected input: ${String(error)}`);
+      stage.failure = failure;
+      return rejected("deterministic", [stage], failure);
     }
     stage.durationMs = Date.now() - startedAt;
     if (requestDeadlineAt !== null && Date.now() >= requestDeadlineAt) {

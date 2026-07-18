@@ -472,7 +472,8 @@ interface DjAgentProvider {
 - 実装済み・テスト済み（mocked、ネットワーク非依存）: `backend/` パッケージに `DeterministicProvider` / `Gpt56IntentProvider`（OpenAI SDK構造化出力、model id `gpt-5.6` を保存）/ `CodexLocalProvider`（`@openai/codex-sdk@0.144.6`、read-only sandbox・network無効・`approvalPolicy:"never"`・`workingDirectory`=リポジトリルート）を実装。`POST /api/agent/decide` と `GET /api/agent/capability`、意味検証、総request deadline・遅延結果の世代無効化、オプトイン限定フォールバック、loopback限定HTTP公開の統治を含む。`npm run test:agent`（75件）・`npm run check`・`git diff --check` 通過。
 - 実機確認済み: ChatGPTログイン済み環境で `RUN_LIVE_CODEX=1 npm --workspace backend run test:smoke` を実行し、Codex SDK実経路がSchema・意味検証を通る決定を返すことを確認した（2026-07-19、1件pass）。
 - 未検証: GPT-5.6 の実API呼び出しはAPIキー未設定のため未実行。live smokeは `RUN_LIVE_GPT=1`＋`OPENAI_API_KEY` でオプトイン実行できる。model id `gpt-5.6` がAPIで受理されるかも未確認。
-- 未実施: UIでの「GPT-5.6 Intent／Codex Decision／Fallback」区別表示（順序7の範囲）。したがって**順序6は完了扱いにしない**。上記の実API経路とUI区別が実機で確認できるまで未完とする。
+- UI統合済み: `AgentPanel` が要求ルート、実際の各stage、intent source、最終decision provider、決定論的fallback、型付き拒否理由を区別して表示する。fallbackをCodex/GPT結果として表示しない回帰テストを含む。
+- **順序6は完了扱いにしない**: GPT-5.6実API経路が未検証であるため。APIキー設定環境でmodel idとSchema適合を確認後に完了とする。
 
 ### 5.8 順序7 — UI統合・E2Eデモ・録画固定 [P1]
 
@@ -504,6 +505,13 @@ UIで見せるもの:
 - GPT-5.6 + Codex有効版とfallback版の両方を1回以上録画する。
 - 動画音声とREADMEでGPT-5.6とCodexの異なるmeaningful useを説明する。
 - READMEの起動手順が新しいPCを想定して3コマンド以内である。
+
+実装状況（2026-07-19時点・順序7バーティカルスライス）:
+
+- 実装済み: Agent API client、真のRuntime/catalog情報からの`DjContext`組立、明示route/fallbackフォーム、現在曲・次曲・BPM/Camelot/energy・理由・confidence・provenance表示、`PREPARING / READY / SYNCED / MIXING / COMPLETE`の実状態表示、既存`TransitionExecutor`経由のAPPLY seam、Vite proxy、`npm run dev`一括起動。
+- P1修正（Agent UI統合の入力意味保存強化）: 判断時点のdeckスナップショット（active bindingId・active実効BPM/configured velocity/tempo interpretation・inactive deckのbinding/load/transport・crossfader automation）を保存し、同一trackId再ロード、判断後のactive tempo変更、inactive deck変更、別automationを明示拒否。planは判断時点bindingIdへbindし、APPLY直前revision/target bindingを最初の`deck.load`へ、各terminal revisionを後続`deck.sync`/`transition.start`へpreconditionとして渡して検査→実行間のuser操作も上書きしない。stale/binding競合後はrollbackせずuserへ譲り、通常rollbackの最初のtarget pauseも失敗terminal（または直前成功step）のrevisionで保護し、その確定revisionをcrossfader復帰へ渡す。MIXINGは自transition intentIdのautomationだけ、SYNCEDはlive effective BPM一致中だけ表示する。`BLOCKED / APPLYING / FAILED / CANCELLED / ERROR`を明示し、blocked/failed/cancelled/API失敗をREADYやIDLEと表示しない。CURRENT/NEXTを単一判断snapshotから表示し、current BPMはruntime実効値を使う。セッション中に実際にplayingへ入ったbindingから直近20件の履歴を記録し、履歴不明を空配列へ置換せず、providerへ履歴をそのまま渡す。Catalog v2は実`beatCount`を必須化しHTTP境界で検証、`hasBeatGrid`は`beatCount > 0`、`hasSectionCues`は実`sectionSummary`だけを根拠にする。APPLY二重実行禁止とrun tokenで旧promise/unmount後更新を遮断。`AgentApiClient`はdecide/capability published contractに加え、route・fallback・decision provider・intent source、各stage/provider対応、およびrouteごとの実行可能なstage順序・成否を検証し、HTTP error/detailも表示する。`scripts/dev.mjs`はbackend/ViteのNode entryをshell/npm wrapperなしで直接spawnし、POSIX process group/Windows taskkill＋事前列挙した子孫PID消滅で終了確認、cleanup不能は失敗として報告する。`scripts/demo-smoke.mjs`はOS割当port、専用childのlisten marker・生存確認、cleanup完了後だけPASSを出す。
+- 検証済み: frontend 304件、backend 75件、contract 9件、analyze-tool 27件、`npm run check`、production build、`npm run demo:smoke`。Windowsで直接launcher停止後にbackend/frontendのprocess treeとportが残らないことを確認（POSIXのprocess-group停止経路は実装済みだが当機Windowsでは未実行）。`git diff --check`もクリーン。
+- 未完: 次小節までのカウント表示、実ブラウザ＋音声でのAPPLY E2E、ゴールデン3曲の3回連続成功、GPT-5.6+Codex版とfallback版の録画、README/動画説明の最終固定。したがって**順序7は進行中**とする。
 
 ## 6. P2 — P0/P1完了後に行うもの
 

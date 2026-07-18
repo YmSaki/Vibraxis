@@ -94,6 +94,7 @@ const track: CatalogTrack = {
   scale: 'minor',
   camelot: '8A',
   energy: 0.6,
+  beatCount: 0,
   sectionSummary: [],
   performancePads: [],
   degreeFingerprint: [],

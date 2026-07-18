@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "workspaces": ["frontend", "backend", "shared"],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "demo:smoke": "node scripts/demo-smoke.mjs",
     "start": "npm --workspace frontend run dev -- --host 0.0.0.0",
     "build": "npm --workspace frontend run build",
     "test": "npm --workspace frontend run test",

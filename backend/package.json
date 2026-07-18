@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./agent": "./src/agent/index.ts"
+    "./agent": "./src/agent/index.ts",
+    "./agent/contract": "./src/agent/contract.ts"
   },
   "scripts": {
     "start": "node src/server.ts",

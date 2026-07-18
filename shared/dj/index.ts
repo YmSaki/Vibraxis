@@ -104,6 +104,10 @@ export interface TransitionPlan {
    * (fromTrackId is insufficient — the same track can be re-bound). Finding 6.
    */
   fromBindingId: string;
+  /** Runtime revision verified atomically by the first target-deck load. */
+  expectedRevision: number;
+  /** Decision-time target binding; null means the target was explicitly empty. */
+  targetBindingId: string | null;
   activeDeckId: DeckId;
   nextTrackId: string;
   targetDeckId: DeckId;

@@ -10,6 +10,10 @@ import {
 import { fetchCatalog, type CatalogTrack } from './catalog'
 import { Deck, type EqBand } from './components/Deck'
 import { TrackLibrary } from './components/TrackLibrary'
+import { AgentPanel } from './components/AgentPanel'
+import { AgentApiClient, AgentApiError } from './agent/AgentApiClient'
+import type { VelocityLimits } from './agent/djContext'
+import type { AgentCapability } from './agent/contract'
 import { createRuntime, runtimeNow } from './runtime/createRuntime'
 import { DeckObjectUrls } from './runtime/DeckObjectUrls'
 import { settleMutation } from './runtime/settleMutation'
@@ -61,6 +65,14 @@ export default function App() {
   const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const [tempoMultipliers, setTempoMultipliers] = useState<Record<DeckId, TempoMultiplier>>({ A: 1, B: 1 })
   const [selectedCueSlots, setSelectedCueSlots] = useState<Record<DeckId, number>>({ A: 1, B: 1 })
+  const [velocity, setVelocity] = useState<VelocityLimits | null>(null)
+  const [capability, setCapability] = useState<AgentCapability | null>(null)
+  const [capabilityError, setCapabilityError] = useState<string | null>(null)
+  const [recentlyPlayedTrackIds, setRecentlyPlayedTrackIds] = useState<string[] | null>([])
+  const observedPlayingBindings = useRef(new Set<string>())
+  const [, setAgentClientReady] = useState(false)
+  const agentClientRef = useRef<VdapClient | null>(null)
+  const agentApi = useMemo(() => new AgentApiClient(), [])
   useEffect(() => engine.subscribe((snapshot) => setAudioReady(snapshot.audioReady)), [engine])
 
   useEffect(() => () => objectUrls.dispose(), [objectUrls])
@@ -69,7 +81,10 @@ export default function App() {
     const vdap = runtime.createUiClient()
     let disposed = false
     void (async () => {
-      await vdap.hello()
+      const hello = await vdap.hello()
+      if (!disposed && hello.capabilities.velocity) {
+        setVelocity({ min: hello.capabilities.velocity.min, max: hello.capabilities.velocity.max })
+      }
       const initial = await vdap.query('state.get', {})
       if (disposed) return
       setRuntimeState(initial)
@@ -79,17 +94,44 @@ export default function App() {
         setRuntimeState(state as RuntimeState)
       })
       if (!disposed) setClient(vdap)
+      // A dedicated agent-role client drives the apply-decision transition
+      // through the same Runtime (no bypass). Ready only after its hello.
+      const agent = runtime.createAgentClient()
+      await agent.hello()
+      if (disposed) {
+        agent.close()
+        return
+      }
+      agentClientRef.current = agent
+      setAgentClientReady(true)
     })().catch((cause) => {
       setError(cause instanceof Error ? cause.message : 'Runtimeを初期化できませんでした。')
     })
     return () => {
       disposed = true
       setClient(null)
+      agentClientRef.current?.close()
+      agentClientRef.current = null
+      setAgentClientReady(false)
       vdap.close()
       runtime.dispose()
       engine.dispose()
     }
   }, [engine, runtime])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    agentApi
+      .getCapability(controller.signal)
+      .then((cap) => setCapability(cap))
+      .catch((cause) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return
+        setCapabilityError(
+          cause instanceof AgentApiError || cause instanceof Error ? cause.message : 'capability request failed',
+        )
+      })
+    return () => controller.abort()
+  }, [agentApi])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -115,6 +157,28 @@ export default function App() {
     runtimeState !== null &&
     (runtimeState.decks.A.transport.phase === 'playing' ||
       runtimeState.decks.B.transport.phase === 'playing')
+
+  // Record only bindings that actually enter the playing phase. This is
+  // session history, not a fabricated "none played" placeholder. Twenty is the
+  // published UI retention policy; ordering is oldest to newest.
+  useEffect(() => {
+    if (runtimeState === null) return
+    const newlyPlayed: string[] = []
+    for (const id of ['A', 'B'] as DeckId[]) {
+      const deck = runtimeState.decks[id]
+      const binding = deck.binding
+      if (deck.transport.phase !== 'playing' || binding === null) continue
+      if (observedPlayingBindings.current.has(binding.bindingId)) continue
+      observedPlayingBindings.current.add(binding.bindingId)
+      newlyPlayed.push(binding.trackId)
+    }
+    if (newlyPlayed.length > 0) {
+      setRecentlyPlayedTrackIds((current) => {
+        if (current === null) return null
+        return [...current, ...newlyPlayed].slice(-20)
+      })
+    }
+  }, [runtimeState])
 
   const [, setTick] = useState(0)
   useEffect(() => {
@@ -398,6 +462,17 @@ export default function App() {
 
         <Deck {...deckProps('B')} accent="magenta" />
       </div>
+
+      <AgentPanel
+        api={agentApi}
+        capability={capability}
+        capabilityError={capabilityError}
+        runtimeState={runtimeState}
+        tracks={tracks}
+        velocity={velocity}
+        recentlyPlayedTrackIds={recentlyPlayedTrackIds}
+        getApplyClient={() => agentClientRef.current}
+      />
 
       <TrackLibrary
         tracks={tracks}

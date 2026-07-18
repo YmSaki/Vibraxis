@@ -93,7 +93,17 @@ function localMusicApi(): Plugin {
   }
 }
 
+// The DJ Agent backend (backend/src/server.ts) listens loopback-only on
+// AGENT_PORT (default 8787). Proxy just the agent routes to it; catalog/track
+// routes stay served by the local middleware above.
+const agentTarget = `http://127.0.0.1:${process.env.AGENT_PORT ?? '8787'}`
+
 export default defineConfig({
   plugins: [react(), localMusicApi()],
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api/agent': { target: agentTarget, changeOrigin: false },
+    },
+  },
 })

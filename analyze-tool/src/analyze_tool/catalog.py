@@ -61,6 +61,10 @@ def build_catalog(
             "scale": analysis["tonal"]["scale"],
             "camelot": analysis["tonal"]["camelot"],
             "energy": analysis["features"]["energy"],
+            # Exact evidence for provider-facing beat-grid availability. A
+            # partial capability status alone does not prove that any grid
+            # points were produced.
+            "beatCount": len(analysis["tempo"]["beatsSeconds"]),
             "sectionSummary": [
                 {
                     "label": section["label"],
@@ -82,7 +86,7 @@ def build_catalog(
             "capabilities": {name: info["status"] for name, info in analysis["capabilities"].items()},
             "licenseStatus": "unverified" if str(metadata["license"]).lower().startswith("unverified") else "verified",
         })
-    catalog = {"catalogVersion": 1, "tracks": records}
+    catalog = {"catalogVersion": 2, "tracks": records}
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_path.with_suffix(output_path.suffix + ".tmp")
     temporary.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

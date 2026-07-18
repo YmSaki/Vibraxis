@@ -26,6 +26,7 @@ class CatalogTests(unittest.TestCase):
             }}}), encoding="utf-8")
             output = root / "catalog.json"
             catalog = build_catalog(source, analysis, output)
+            self.assertEqual(catalog["tracks"][0]["beatCount"], 120)
             self.assertEqual(catalog["tracks"][0]["degreeFingerprint"], ["i"])
             self.assertEqual(catalog["tracks"][0]["performancePads"][0]["slot"], 1)
             self.assertEqual(catalog["tracks"][0]["performancePads"][0]["label"], "FIRST BEAT")

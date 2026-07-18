@@ -58,8 +58,8 @@ export type TransitionResult =
 
 type StepOutcome =
   | { kind: 'completed'; result: CommandResult; revision: number }
-  | { kind: 'cancelled'; reason: IntentCancelReason }
-  | { kind: 'failed'; error: VdapError }
+  | { kind: 'cancelled'; reason: IntentCancelReason; revision: number }
+  | { kind: 'failed'; error: VdapError; revision?: number }
 
 const INTERNAL_ERROR = (message: string): VdapError => ({ code: 'E_INTERNAL', message, retryable: false })
 
@@ -77,7 +77,14 @@ export class TransitionExecutor {
 
     // Stage 2 — load the next track and capture the confirmed bindingId.
     const load = await this.step(() =>
-      this.client.mutate('deck.load', { deckId: target, source: { kind: 'catalog', trackId: plan.nextTrackId } }),
+      this.client.mutate(
+        'deck.load',
+        { deckId: target, source: { kind: 'catalog', trackId: plan.nextTrackId } },
+        {
+          expectedRevision: plan.expectedRevision,
+          ...(plan.targetBindingId === null ? {} : { expectedBindingId: plan.targetBindingId }),
+        },
+      ),
     )
     if (load.kind !== 'completed') {
       // Nothing on the active deck changed, so there is nothing to roll back.
@@ -87,32 +94,43 @@ export class TransitionExecutor {
 
     // Stage 3 — exact tempo-only sync. Out-of-range sync is rejected upstream.
     let sync: SyncResult | null = null
+    let preTransitionRevision = load.revision
     if (plan.tempoSync === 'tempo') {
       const outcome = await this.step(() =>
-        this.client.mutate('deck.sync', { deckId: target, reference: active, mode: 'tempo' }, { expectedBindingId: bindingId }),
+        this.client.mutate(
+          'deck.sync',
+          { deckId: target, reference: active, mode: 'tempo' },
+          { expectedBindingId: bindingId, expectedRevision: load.revision },
+        ),
       )
       if (outcome.kind !== 'completed') {
-        const cleanup = await this.rollback(target, activeSide, bindingId)
+        if (isUserStateConflict(outcome)) return this.nonCompleted('sync', outcome, false)
+        const cleanup = await this.rollback(target, activeSide, bindingId, outcome.revision ?? load.revision)
         return this.nonCompleted('sync', outcome, cleanup.ok, cleanup.errors)
       }
       sync = outcome.result as SyncResult
+      preTransitionRevision = outcome.revision
     }
 
     // Stage 4 — one Runtime Intent owns one boundary and both audio side effects.
-    const transition = await this.step(() => this.client.mutate('transition.start', {
-      activeDeckId: active,
-      activeBindingId: plan.fromBindingId,
-      targetDeckId: target,
-      targetBindingId: bindingId,
-      at: plan.startAt,
-      crossfader: {
-        to: targetSide,
-        duration: { bars: plan.crossfadeBars },
-        curve: 'equalPower',
+    const transition = await this.step(() => this.client.mutate(
+      'transition.start',
+      {
+        activeDeckId: active,
+        activeBindingId: plan.fromBindingId,
+        targetDeckId: target,
+        targetBindingId: bindingId,
+        at: plan.startAt,
+        crossfader: {
+          to: targetSide,
+          duration: { bars: plan.crossfadeBars },
+          curve: 'equalPower',
+        },
       },
-    }))
+      { expectedRevision: preTransitionRevision },
+    ))
     if (transition.kind !== 'completed') {
-      return this.settleNonCompleted('start', transition, target, activeSide, bindingId)
+      return this.settleNonCompleted('start', transition, target, activeSide, bindingId, preTransitionRevision)
     }
 
     // Stage 5 — pause the active deck ONLY after the ramp completed, and only if
@@ -140,13 +158,15 @@ export class TransitionExecutor {
     target: DeckId,
     activeSide: number,
     targetBindingId: string,
+    priorRevision: number,
   ): Promise<TransitionResult> {
     if (outcome.kind === 'cancelled') {
       // A user override already owns this domain; do not force the crossfader or
       // pause the active deck. Yield cleanly.
       return { status: 'cancelled', stage, reason: outcome.reason }
     }
-    const cleanup = await this.rollback(target, activeSide, targetBindingId)
+    if (isUserStateConflict(outcome)) return this.nonCompleted(stage, outcome, false)
+    const cleanup = await this.rollback(target, activeSide, targetBindingId, outcome.revision ?? priorRevision)
     return this.nonCompleted(stage, outcome, cleanup.ok, cleanup.errors)
   }
 
@@ -175,13 +195,21 @@ export class TransitionExecutor {
     target: DeckId,
     activeSide: number,
     targetBindingId: string,
+    expectedRevision: number,
   ): Promise<{ ok: boolean; errors: VdapError[] }> {
     const errors: VdapError[] = []
     const pause = await this.step(() =>
-      this.client.mutate('deck.pause', { deckId: target }, { expectedBindingId: targetBindingId }),
+      this.client.mutate('deck.pause', { deckId: target }, { expectedBindingId: targetBindingId, expectedRevision }),
     )
-    if (pause.kind === 'failed') errors.push(pause.error)
-    const fader = await this.step(() => this.client.mutate('mixer.setCrossfader', { position: activeSide }))
+    if (pause.kind !== 'completed') {
+      if (pause.kind === 'failed') errors.push(pause.error)
+      return { ok: false, errors }
+    }
+    const fader = await this.step(() => this.client.mutate(
+      'mixer.setCrossfader',
+      { position: activeSide },
+      { expectedRevision: pause.revision },
+    ))
     if (fader.kind === 'failed') errors.push(fader.error)
     return { ok: pause.kind === 'completed' && fader.kind === 'completed', errors }
   }
@@ -191,7 +219,13 @@ export class TransitionExecutor {
     try {
       handle = await begin()
     } catch (cause) {
-      return { kind: 'failed', error: errorFrom(cause) }
+      return {
+        kind: 'failed',
+        error: errorFrom(cause),
+        ...(cause instanceof VdapClientError && cause.ack?.revision !== undefined
+          ? { revision: cause.ack.revision }
+          : {}),
+      }
     }
     return this.awaitTerminal(handle.terminal)
   }
@@ -204,9 +238,9 @@ export class TransitionExecutor {
       return { kind: 'failed', error: errorFrom(cause) }
     }
     if (event.event === 'intent.completed') return { kind: 'completed', result: event.result, revision: event.revision }
-    if (event.event === 'intent.cancelled') return { kind: 'cancelled', reason: event.reason }
-    if (event.event === 'intent.superseded') return { kind: 'cancelled', reason: 'bindingChanged' }
-    return { kind: 'failed', error: event.error }
+    if (event.event === 'intent.cancelled') return { kind: 'cancelled', reason: event.reason, revision: event.revision }
+    if (event.event === 'intent.superseded') return { kind: 'cancelled', reason: 'bindingChanged', revision: event.revision }
+    return { kind: 'failed', error: event.error, revision: event.revision }
   }
 
 }
@@ -225,4 +259,10 @@ function errorFrom(cause: unknown): VdapError {
   if (cause instanceof VdapClientError && cause.ack) return cause.ack.error
   if (cause instanceof Error) return INTERNAL_ERROR(cause.message)
   return INTERNAL_ERROR('Unknown transition failure.')
+}
+
+function isUserStateConflict(outcome: StepOutcome): boolean {
+  return outcome.kind === 'cancelled'
+    || (outcome.kind === 'failed'
+      && (outcome.error.code === 'E_STALE_REVISION' || outcome.error.code === 'E_BINDING_MISMATCH'))
 }

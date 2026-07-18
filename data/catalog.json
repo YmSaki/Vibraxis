@@ -1,5 +1,5 @@
 {
-  "catalogVersion": 1,
+  "catalogVersion": 2,
   "tracks": [
     {
       "trackId": "126_long_bpm142",
@@ -21,6 +21,7 @@
       "scale": "major",
       "camelot": "6B",
       "energy": 0.8141,
+      "beatCount": 1634,
       "sectionSummary": [
         {
           "label": "intro",
@@ -692,6 +693,7 @@
       "scale": "major",
       "camelot": "10B",
       "energy": 0.5811,
+      "beatCount": 1589,
       "sectionSummary": [
         {
           "label": "intro",
@@ -1396,6 +1398,7 @@
       "scale": "major",
       "camelot": "12B",
       "energy": 0.8671,
+      "beatCount": 1650,
       "sectionSummary": [
         {
           "label": "intro",
@@ -2152,6 +2155,7 @@
       "scale": "major",
       "camelot": "12B",
       "energy": 0.7638,
+      "beatCount": 969,
       "sectionSummary": [
         {
           "label": "intro",
@@ -2610,6 +2614,7 @@
       "scale": "minor",
       "camelot": "9A",
       "energy": 0.7626,
+      "beatCount": 989,
       "sectionSummary": [
         {
           "label": "intro",
@@ -3101,6 +3106,7 @@
       "scale": "major",
       "camelot": "8B",
       "energy": 0.8521,
+      "beatCount": 1160,
       "sectionSummary": [
         {
           "label": "intro",
@@ -3708,6 +3714,7 @@
       "scale": "major",
       "camelot": "2B",
       "energy": 0.8459,
+      "beatCount": 1052,
       "sectionSummary": [
         {
           "label": "intro",
@@ -4272,6 +4279,7 @@
       "scale": "major",
       "camelot": "3B",
       "energy": 0.8265,
+      "beatCount": 1508,
       "sectionSummary": [
         {
           "label": "intro",
@@ -4910,6 +4918,7 @@
       "scale": "major",
       "camelot": "9B",
       "energy": 0.753,
+      "beatCount": 1063,
       "sectionSummary": [
         {
           "label": "intro",

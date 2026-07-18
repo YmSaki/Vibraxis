@@ -17,6 +17,7 @@
     "vite": "latest"
   },
   "devDependencies": {
+    "@vibraxis/backend": "0.1.0",
     "@types/node": "^26.1.1",
     "@types/react": "latest",
     "@types/react-dom": "latest",

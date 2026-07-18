@@ -13,6 +13,7 @@ const track: CatalogTrack = {
   scale: 'major',
   camelot: '8B',
   energy: 0.5,
+  beatCount: 0,
   sectionSummary: [],
   performancePads: [],
   degreeFingerprint: [],
@@ -27,9 +28,20 @@ describe('catalog client', () => {
 
   it('loads the track list from the catalog endpoint', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = async () => new Response(JSON.stringify({ catalogVersion: 1, tracks: [track] }))
+    globalThis.fetch = async () => new Response(JSON.stringify({ catalogVersion: 2, tracks: [track] }))
     try {
       await expect(fetchCatalog()).resolves.toEqual([track])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('rejects a catalog whose required beatCount is missing', async () => {
+    const originalFetch = globalThis.fetch
+    const { beatCount: _beatCount, ...withoutBeatCount } = track
+    globalThis.fetch = async () => new Response(JSON.stringify({ catalogVersion: 2, tracks: [withoutBeatCount] }))
+    try {
+      await expect(fetchCatalog()).rejects.toThrow('解析可用性データが不正')
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -51,7 +63,7 @@ describe('catalog client', () => {
         locked: false,
       }],
     }
-    globalThis.fetch = async () => new Response(JSON.stringify({ catalogVersion: 1, tracks: [wireTrack] }))
+    globalThis.fetch = async () => new Response(JSON.stringify({ catalogVersion: 2, tracks: [wireTrack] }))
     try {
       const [loaded] = await fetchCatalog()
       expect(loaded.performancePads[0].sourceSeconds).toBe(1.25)

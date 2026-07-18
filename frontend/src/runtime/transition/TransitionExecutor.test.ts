@@ -67,6 +67,8 @@ class FakeClient implements TransitionClient {
 const PLAN: TransitionPlan = {
   fromTrackId: 'track-A',
   fromBindingId: 'bind-active-A',
+  expectedRevision: 1,
+  targetBindingId: null,
   activeDeckId: 'A',
   nextTrackId: 'track-B',
   targetDeckId: 'B',
@@ -121,7 +123,7 @@ describe('TransitionExecutor', () => {
     await new TransitionExecutor(client).run(PLAN)
 
     const transition = client.calls.find((call) => call.command === 'transition.start')
-    expect(transition?.options).toBeUndefined()
+    expect(transition?.options).toEqual({ expectedRevision: 1 })
     expect(transition?.params).toMatchObject({
       activeDeckId: 'A', activeBindingId: 'bind-active-A',
       targetDeckId: 'B', targetBindingId: 'bind-next', at: 'nextBar',
@@ -132,6 +134,15 @@ describe('TransitionExecutor', () => {
     expect((pause?.params as { deckId?: unknown }).deckId).toBe('A')
     expect((pause?.options as { expectedBindingId?: unknown }).expectedBindingId).toBe('bind-active-A')
     expect((pause?.options as { expectedRevision?: unknown }).expectedRevision).toBe(1)
+    const load = client.calls.find((call) => call.command === 'deck.load')
+    expect(load?.options).toEqual({ expectedRevision: 1 })
+  })
+
+  it('carries the apply-time revision and target binding into the first load precondition', async () => {
+    const client = new FakeClient(happyResponder())
+    await new TransitionExecutor(client).run({ ...PLAN, expectedRevision: 42, targetBindingId: 'old-target' })
+    const load = client.calls.find((call) => call.command === 'deck.load')
+    expect(load?.options).toEqual({ expectedRevision: 42, expectedBindingId: 'old-target' })
   })
 
   it('rolls back and fails when the required tempo sync is out of range (E_OUT_OF_RANGE)', async () => {
@@ -149,6 +160,18 @@ describe('TransitionExecutor', () => {
     expect(client.commands()).not.toContain('mixer.rampCrossfader')
     const pauses = client.calls.filter((call) => call.command === 'deck.pause')
     expect(pauses.every((call) => (call.params as { deckId: string }).deckId === 'B')).toBe(true)
+    expect(pauses[0]?.options).toEqual({ expectedBindingId: 'bind-next', expectedRevision: 1 })
+  })
+
+  it('does not rollback over a newer user state after a stale-revision rejection', async () => {
+    const client = new FakeClient((command) => {
+      if (command === 'deck.load') return { type: 'complete', result: LOAD_RESULT }
+      if (command === 'deck.sync') return { type: 'reject', error: ERR('E_STALE_REVISION') }
+      return { type: 'complete' }
+    })
+    const result = await new TransitionExecutor(client).run(PLAN)
+    expect(result).toMatchObject({ status: 'failed', stage: 'sync', error: { code: 'E_STALE_REVISION' }, rolledBack: false })
+    expect(client.commands()).toEqual(['deck.load', 'deck.sync'])
   })
 
   it('reports rolledBack:false with cleanupErrors when rollback itself fails', async () => {
@@ -166,6 +189,7 @@ describe('TransitionExecutor', () => {
     if (result.status === 'failed') {
       expect(result.cleanupErrors?.some((e) => e.code === 'E_BINDING_MISMATCH')).toBe(true)
     }
+    expect(client.commands()).not.toContain('mixer.setCrossfader')
   })
 
   it('does not pause the active deck when the ramp fails, and rolls back', async () => {
@@ -181,8 +205,10 @@ describe('TransitionExecutor', () => {
     // No pause of the ACTIVE deck A; rollback pauses target B and returns the fader to A (-1).
     const pauses = client.calls.filter((call) => call.command === 'deck.pause')
     expect(pauses.every((call) => (call.params as { deckId: string }).deckId === 'B')).toBe(true)
+    expect(pauses[0]?.options).toEqual({ expectedBindingId: 'bind-next', expectedRevision: 1 })
     const reset = client.calls.find((call) => call.command === 'mixer.setCrossfader')
     expect((reset?.params as { position: number }).position).toBe(-1)
+    expect(reset?.options).toEqual({ expectedRevision: 1 })
   })
 
   it('yields (cancelled) without fighting the user when the ramp is user-overridden', async () => {

@@ -30,7 +30,21 @@ describe("deterministic route", () => {
     const orch = buildOrchestrator();
     const a = await orch.decide({ route: "deterministic", context: context(), intent: intent() });
     const b = await orch.decide({ route: "deterministic", context: context(), intent: intent() });
-    expect(a).toEqual(b);
+    // durationMs is an observed wall-clock measurement, not part of the
+    // deterministic selection result. Compare every other field exactly while
+    // validating each measurement independently.
+    expect(a).toEqual({
+      ...b,
+      stages: b.stages.map((stage, index) => ({
+        ...stage,
+        ...(stage.durationMs === undefined ? {} : { durationMs: a.stages[index]?.durationMs }),
+      })),
+    });
+    for (const response of [a, b]) {
+      for (const stage of response.stages) {
+        if (stage.durationMs !== undefined) expect(stage.durationMs).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 
   it("rejects with no_candidate when nothing is eligible", async () => {
