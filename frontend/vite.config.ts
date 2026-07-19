@@ -48,7 +48,9 @@ function localMusicApi(): Plugin {
         }
         response.statusCode = 200
         response.setHeader('Content-Type', 'application/json; charset=utf-8')
-        response.setHeader('Cache-Control', 'private, max-age=3600')
+        // no-store: analysis JSON is regenerated during grid tuning; a cached
+        // hour-old grid makes listening checks silently test stale data.
+        response.setHeader('Cache-Control', 'no-store')
         createReadStream(path).pipe(response)
       } catch {
         response.statusCode = 500
