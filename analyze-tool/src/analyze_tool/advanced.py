@@ -9,6 +9,45 @@ from analyze_tool.models import ChordEvent, HarmonyInfo, KeyRegion, Phrase, Sect
 from analyze_tool.music import NOTE_NAMES, Scale, degree_for, estimate_key
 
 
+def rigid_beat_times(
+    onset_envelope: np.ndarray,
+    sample_rate: int,
+    bpm: float,
+    duration: float,
+    *,
+    hop_length: int = 512,
+    candidates: int = 64,
+) -> list[float]:
+    """Anchor a constant-tempo (isochronous) beat grid to the onset envelope.
+
+    For DAW-produced material whose nominal BPM is known and constant, dynamic
+    beat tracking can wander in low-onset passages; a rigid grid whose phase is
+    chosen by maximum mean onset energy is more faithful. The grid period is
+    exactly 60/bpm; only the anchor offset within one period is searched.
+    """
+
+    if bpm <= 0 or duration <= 0:
+        raise ValueError("rigid grid requires a positive bpm and duration")
+    if len(onset_envelope) == 0:
+        raise ValueError("rigid grid requires a non-empty onset envelope")
+    period = 60.0 / bpm
+    frame_times = librosa.frames_to_time(
+        np.arange(len(onset_envelope)), sr=sample_rate, hop_length=hop_length
+    )
+    best_offset = 0.0
+    best_score = -np.inf
+    for step in range(candidates):
+        offset = period * step / candidates
+        times = np.arange(offset, duration, period)
+        if len(times) == 0:
+            continue
+        indexes = np.clip(np.searchsorted(frame_times, times), 0, len(onset_envelope) - 1)
+        score = float(np.mean(onset_envelope[indexes]))
+        if score > best_score:
+            best_offset, best_score = offset, score
+    return [round(float(value), 4) for value in np.arange(best_offset, duration, period)]
+
+
 def infer_downbeats(
     beat_frames: np.ndarray,
     onset_envelope: np.ndarray,

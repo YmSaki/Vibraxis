@@ -96,6 +96,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     source_name=source_name,
                     bpm_override=float(bpm_override) if bpm_override is not None else None,
                     downbeat_offset_beats=selected_overrides.get("downbeatOffsetBeats"),
+                    rigid_grid=selected_overrides.get("rigidGrid"),
                 )
                 record = apply_overrides(record, selected_overrides)
                 incomplete = [name for name, info in record.capabilities.items() if info.status != "complete"]

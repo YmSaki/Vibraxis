@@ -9,7 +9,7 @@ from analyze_tool.music import camelot_for, canonical_key, degree_for
 
 ALLOWED_FIELDS = {
     "bpm", "key", "scale", "camelot", "energy", "keyRegions", "chords", "sections",
-    "downbeatOffsetBeats",
+    "downbeatOffsetBeats", "rigidGrid",
 }
 
 
@@ -38,6 +38,17 @@ def apply_overrides(record: AnalysisRecord, values: dict[str, Any]) -> AnalysisR
         # and structure are derived from the bar grid); recorded here so the
         # emitted overridesApplied provenance lists it.
         applied.append("downbeatOffsetBeats")
+
+    if "rigidGrid" in values:
+        rigid = values["rigidGrid"]
+        if not isinstance(rigid, bool):
+            raise ValueError("rigidGrid override must be a boolean")
+        if rigid and "bpm" not in values:
+            raise ValueError("rigidGrid requires a bpm override in the same entry")
+        # Consumed during analysis (the beat grid itself is replaced before any
+        # downstream derivation); recorded for provenance.
+        if rigid:
+            applied.append("rigidGrid")
 
     if "key" in values or "scale" in values or "camelot" in values:
         key = canonical_key(str(values.get("key", tonal.key)))

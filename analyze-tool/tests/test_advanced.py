@@ -8,10 +8,36 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
-from analyze_tool.advanced import infer_downbeats, infer_harmony, infer_key_regions, infer_structure  # noqa: E402
+from analyze_tool.advanced import (  # noqa: E402
+    infer_downbeats,
+    infer_harmony,
+    infer_key_regions,
+    infer_structure,
+    rigid_beat_times,
+)
 
 
 class AdvancedAnalysisTests(unittest.TestCase):
+    def test_rigid_grid_is_isochronous_and_anchors_to_onset_peaks(self) -> None:
+        # 120 BPM -> exact 0.5 s period. Onset peaks at 0.2 + k * 0.5 seconds.
+        sample_rate, hop = 22_050, 512
+        frame_dt = hop / sample_rate
+        envelope = np.full(400, 0.01)
+        for k in range(18):
+            envelope[int(round((0.2 + k * 0.5) / frame_dt))] = 1.0
+        beats = rigid_beat_times(envelope, sample_rate, 120.0, 9.0, hop_length=hop)
+        self.assertGreater(len(beats), 15)
+        intervals = np.diff(beats)
+        self.assertTrue(np.allclose(intervals, 0.5, atol=1e-3), intervals[:4])
+        # Anchor lands on the true beat phase within frame+search resolution.
+        self.assertLess(abs(beats[0] - 0.2), 0.035, beats[0])
+
+    def test_rigid_grid_rejects_invalid_inputs(self) -> None:
+        with self.assertRaises(ValueError):
+            rigid_beat_times(np.ones(10), 22_050, 0.0, 9.0)
+        with self.assertRaises(ValueError):
+            rigid_beat_times(np.ones(0), 22_050, 120.0, 9.0)
+
     def test_downbeat_phase_offset_shifts_the_bar_head(self) -> None:
         # Sixteen beats, ten frames apart; onset strength peaks on phase 0 beats.
         beat_frames = np.arange(16) * 10

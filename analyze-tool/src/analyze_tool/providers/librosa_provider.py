@@ -10,7 +10,13 @@ import librosa
 import numpy as np
 
 from analyze_tool import __version__
-from analyze_tool.advanced import infer_downbeats, infer_harmony, infer_key_regions, infer_structure
+from analyze_tool.advanced import (
+    infer_downbeats,
+    infer_harmony,
+    infer_key_regions,
+    infer_structure,
+    rigid_beat_times,
+)
 from analyze_tool.models import (
     AnalysisRecord,
     AnalyzerInfo,
@@ -64,11 +70,16 @@ class LibrosaAnalyzer:
         source_name: str | None = None,
         bpm_override: float | None = None,
         downbeat_offset_beats: int | None = None,
+        rigid_grid: bool | None = None,
     ) -> AnalysisRecord:
         if downbeat_offset_beats is not None and (
             isinstance(downbeat_offset_beats, bool) or not isinstance(downbeat_offset_beats, int)
         ):
             raise ValueError("downbeat offset must be an integer number of beats")
+        if rigid_grid is not None and not isinstance(rigid_grid, bool):
+            raise ValueError("rigidGrid must be a boolean")
+        if rigid_grid and bpm_override is None:
+            raise ValueError("rigidGrid requires a bpm override (the constant nominal tempo)")
         path = path.resolve()
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -100,7 +111,15 @@ class LibrosaAnalyzer:
             )
         else:
             bpm, adjustment = fold_bpm(raw_bpm, self.min_bpm, self.max_bpm)
-        beats = librosa.frames_to_time(beat_frames, sr=sample_rate).tolist()
+        if rigid_grid:
+            # Grid solver: replace the dynamically tracked beats with an
+            # isochronous grid at the pinned tempo, anchored by onset energy.
+            # Downbeats, bars, harmony, structure, and pads all derive from
+            # these beats, so the whole record follows the rigid grid.
+            beats = rigid_beat_times(onset_envelope, sample_rate, bpm, duration)
+            beat_frames = librosa.time_to_frames(np.asarray(beats), sr=sample_rate)
+        else:
+            beats = librosa.frames_to_time(beat_frames, sr=sample_rate).tolist()
 
         key_samples = _middle_window(samples, sample_rate, self.key_window_seconds)
         chroma = librosa.feature.chroma_stft(

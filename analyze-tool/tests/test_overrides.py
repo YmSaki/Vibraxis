@@ -58,6 +58,14 @@ class OverrideTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "downbeatOffsetBeats"):
                 apply_overrides(make_record(), {"downbeatOffsetBeats": bad})
 
+    def test_rigid_grid_requires_bpm_and_boolean(self) -> None:
+        result = apply_overrides(make_record(), {"bpm": 142, "rigidGrid": True})
+        self.assertIn("rigidGrid", result.overrides_applied)
+        with self.assertRaisesRegex(ValueError, "rigidGrid requires a bpm"):
+            apply_overrides(make_record(), {"rigidGrid": True})
+        with self.assertRaisesRegex(ValueError, "rigidGrid override must be a boolean"):
+            apply_overrides(make_record(), {"bpm": 142, "rigidGrid": "yes"})
+
     def test_manual_harmony_and_sections_replace_automatic_values(self) -> None:
         result = apply_overrides(make_record(), {
             "keyRegions": [{
