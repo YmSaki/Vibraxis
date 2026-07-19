@@ -47,6 +47,12 @@
   <span class="hint">クリックが遅れて聞こえる→負の値、早い→正の値を試す。ドリフト確認は 50%/終盤 へジャンプ。</span>
 </div>
 
+<div class="row">
+  小節頭の位相試聴(再生中に即切替):
+  <button class="ph" data-p="0">位相1</button><button class="ph" data-p="1">位相2</button><button class="ph" data-p="2">位相3</button><button class="ph" data-p="3">位相4</button>
+  <span id="phinfo" class="hint"></span>
+</div>
+
 <h2>判定(曲ごとに保存)</h2>
 <div class="row">
   拍位置: <button class="v" data-k="beatOk" data-v="ok">OK</button><button class="v" data-k="beatOk" data-v="ng">NG</button>
@@ -58,16 +64,18 @@
 <div class="row"><button id="save">この曲の判定を保存</button><button id="export">全判定をJSONエクスポート</button><span id="savemsg" class="hint"></span></div>
 
 <h2>保存済み判定</h2>
-<table id="results"><thead><tr><th>trackId</th><th>拍</th><th>小節頭</th><th>ドリフト</th><th>採用</th><th>offset(ms)</th><th>メモ</th></tr></thead><tbody></tbody></table>
+<table id="results"><thead><tr><th>trackId</th><th>拍</th><th>小節頭</th><th>位相Δ</th><th>ドリフト</th><th>採用</th><th>offset(ms)</th><th>メモ</th></tr></thead><tbody></tbody></table>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const LS_KEY = "vibraxis-grid-check";
 let ctx = null, gain = null, clickGain = null;
+let accentBuses = null;
 let catalog = [], current = null, analysis = null, buffer = null;
 let srcNode = null, playing = false, startCtxTime = 0, startOffset = 0;
 let schedTimer = null;
 let verdict = {};
+let dataPhase = 0, phaseChoice = 0;
 
 const store = () => JSON.parse(localStorage.getItem(LS_KEY) || "{}");
 const setStore = (s) => localStorage.setItem(LS_KEY, JSON.stringify(s));
@@ -84,10 +92,24 @@ function ensureCtx() {
     ctx = new AudioContext();
     gain = ctx.createGain(); gain.connect(ctx.destination);
     clickGain = ctx.createGain(); clickGain.connect(ctx.destination);
+    // Four accent buses: every beat's accent oscillator is pre-scheduled into
+    // the bus of its phase (beat index mod 4); auditioning a bar-head phase is
+    // just a gain switch, so it works live without rescheduling.
+    accentBuses = [0, 1, 2, 3].map(() => { const g = ctx.createGain(); g.connect(clickGain); return g; });
   }
   gain.gain.value = Number($("vol").value);
   applyClickGain();
+  applyPhaseGains();
   return ctx.resume();
+}
+
+function applyPhaseGains() {
+  if (!accentBuses) return;
+  accentBuses.forEach((bus, index) => { bus.gain.value = index === phaseChoice ? 1 : 0; });
+  document.querySelectorAll("button.ph").forEach((b) => b.classList.toggle("on", Number(b.dataset.p) === phaseChoice));
+  const delta = ((phaseChoice - dataPhase) % 4 + 4) % 4;
+  $("phinfo").textContent = `解析上の小節頭=位相${dataPhase + 1} / 選択=位相${phaseChoice + 1}` +
+    (delta === 0 ? "(一致)" : ` → 補正Δ=${delta === 3 ? -1 : delta}拍`);
 }
 
 /** Clicks are pre-scheduled, so ON/OFF and volume act through this gain. */
@@ -111,7 +133,13 @@ async function loadTrack() {
   $("seek").max = buffer.duration;
   const beats = beatTimes().length, downs = downbeatTimes().size;
   $("meta").textContent = `${current.title} · ${current.bpm} BPM · ${fmt(buffer.duration)} · beats=${beats} downbeats=${downs} · grid status: ${analysis?.capabilities?.beatGrid?.status ?? analysis?.tempo?.status ?? "?"}`;
+  const beatList = beatTimes();
+  const firstDown = (analysis?.tempo?.downbeatsSeconds ?? [])[0];
+  const downIndex = beatList.indexOf(firstDown);
+  dataPhase = downIndex >= 0 ? downIndex % 4 : 0;
   verdict = store()[id] || {};
+  phaseChoice = Number.isInteger(verdict.chosenPhase) ? verdict.chosenPhase : dataPhase;
+  applyPhaseGains();
   $("notes").value = verdict.notes || "";
   $("offset").value = verdict.offsetMs ?? 0;
   paintVerdictButtons();
@@ -141,21 +169,24 @@ async function play() {
   playing = true;
   $("play").textContent = "⏸ 停止";
   const times = beatTimes();
-  const downs = downbeatTimes();
   const offset = Number($("offset").value) / 1000;
   clickNodes = [];
+  const scheduleTone = (at, freq, destination) => {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.frequency.value = freq;
+    env.gain.setValueAtTime(1, at);
+    env.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
+    osc.connect(env); env.connect(destination);
+    osc.start(at); osc.stop(at + 0.06);
+    clickNodes.push(osc);
+  };
   for (let i = 0; i < times.length; i += 1) {
     const t = times[i] + offset;
     if (t < startOffset || t > buffer.duration) continue;
     const at = startAt + (t - startOffset);
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.frequency.value = downs.has(times[i].toFixed(3)) ? 1568 : 1047;
-    env.gain.setValueAtTime(1, at);
-    env.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
-    osc.connect(env); env.connect(clickGain);
-    osc.start(at); osc.stop(at + 0.06);
-    clickNodes.push(osc);
+    scheduleTone(at, 1047, clickGain);          // base click, every beat
+    scheduleTone(at, 1568, accentBuses[i % 4]); // accent, gated by phase choice
   }
   schedTimer = setInterval(updateUi, 100);
 }
@@ -197,7 +228,7 @@ function renderResults() {
   const s = store();
   const mark = (v, okVal) => v === undefined ? "—" : `<span class="${v === okVal ? "ok" : "ng"}">${v}</span>`;
   document.querySelector("#results tbody").innerHTML = Object.entries(s).map(([id, v]) =>
-    `<tr><td>${id}</td><td>${mark(v.beatOk, "ok")}</td><td>${mark(v.downbeatOk, "ok")}</td><td>${mark(v.drift, "none")}</td><td>${mark(v.demoUse, "yes")}</td><td>${v.offsetMs ?? 0}</td><td>${(v.notes ?? "").slice(0, 60)}</td></tr>`
+    `<tr><td>${id}</td><td>${mark(v.beatOk, "ok")}</td><td>${mark(v.downbeatOk, "ok")}</td><td>${v.phaseDeltaBeats === undefined ? "—" : `<span class="${v.phaseDeltaBeats === 0 ? "ok" : "ng"}">${v.phaseDeltaBeats >= 0 ? "+" : ""}${v.phaseDeltaBeats}</span>`}</td><td>${mark(v.drift, "none")}</td><td>${mark(v.demoUse, "yes")}</td><td>${v.offsetMs ?? 0}</td><td>${(v.notes ?? "").slice(0, 60)}</td></tr>`
   ).join("");
 }
 
@@ -212,13 +243,20 @@ document.querySelectorAll("[data-jump]").forEach((b) => { b.onclick = () => buff
 document.querySelectorAll("button.v").forEach((b) => {
   b.onclick = () => { verdict[b.dataset.k] = b.dataset.v; paintVerdictButtons(); };
 });
+document.querySelectorAll("button.ph").forEach((b) => {
+  b.onclick = () => { phaseChoice = Number(b.dataset.p); applyPhaseGains(); };
+});
 $("save").onclick = () => {
   if (!current) return;
   verdict.notes = $("notes").value;
   verdict.offsetMs = Number($("offset").value);
+  verdict.chosenPhase = phaseChoice;
+  verdict.dataPhase = dataPhase;
+  const delta = ((phaseChoice - dataPhase) % 4 + 4) % 4;
+  verdict.phaseDeltaBeats = delta === 3 ? -1 : delta; // 位相選択から機械導出した補正量
   verdict.annotatedAt = new Date().toISOString();
   const s = store(); s[current.trackId] = verdict; setStore(s);
-  $("savemsg").textContent = `${current.trackId} を保存しました`;
+  $("savemsg").textContent = `${current.trackId} を保存しました (位相Δ=${verdict.phaseDeltaBeats})`;
   renderResults();
 };
 $("export").onclick = () => {
