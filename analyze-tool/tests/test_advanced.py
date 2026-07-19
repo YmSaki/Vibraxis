@@ -8,10 +8,24 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
-from analyze_tool.advanced import infer_harmony, infer_key_regions, infer_structure  # noqa: E402
+from analyze_tool.advanced import infer_downbeats, infer_harmony, infer_key_regions, infer_structure  # noqa: E402
 
 
 class AdvancedAnalysisTests(unittest.TestCase):
+    def test_downbeat_phase_offset_shifts_the_bar_head(self) -> None:
+        # Sixteen beats, ten frames apart; onset strength peaks on phase 0 beats.
+        beat_frames = np.arange(16) * 10
+        envelope = np.full(160, 0.1)
+        envelope[beat_frames[0::4]] = 1.0
+        auto, auto_phase = infer_downbeats(beat_frames, envelope, 22_050)
+        self.assertEqual(auto_phase, 0)
+        shifted, shifted_phase = infer_downbeats(beat_frames, envelope, 22_050, phase_offset=1)
+        self.assertEqual(shifted_phase, 1)
+        self.assertEqual(len(shifted), len(auto))
+        self.assertGreater(shifted[0], auto[0])
+        negative, negative_phase = infer_downbeats(beat_frames, envelope, 22_050, phase_offset=-1)
+        self.assertEqual(negative_phase, 3)
+
     def test_recognizes_and_merges_c_major_bars(self) -> None:
         chroma = np.zeros((12, 8))
         chroma[[0, 4, 7], :] = 1

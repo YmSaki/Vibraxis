@@ -7,7 +7,10 @@ from analyze_tool.models import AnalysisRecord, ChordEvent, HarmonyInfo, KeyRegi
 from analyze_tool.music import camelot_for, canonical_key, degree_for
 
 
-ALLOWED_FIELDS = {"bpm", "key", "scale", "camelot", "energy", "keyRegions", "chords", "sections"}
+ALLOWED_FIELDS = {
+    "bpm", "key", "scale", "camelot", "energy", "keyRegions", "chords", "sections",
+    "downbeatOffsetBeats",
+}
 
 
 def apply_overrides(record: AnalysisRecord, values: dict[str, Any]) -> AnalysisRecord:
@@ -26,6 +29,15 @@ def apply_overrides(record: AnalysisRecord, values: dict[str, Any]) -> AnalysisR
             raise ValueError("override BPM must be positive")
         tempo = replace(tempo, bpm=round(bpm, 3), adjustment="none")
         applied.append("bpm")
+
+    if "downbeatOffsetBeats" in values:
+        offset = values["downbeatOffsetBeats"]
+        if isinstance(offset, bool) or not isinstance(offset, int):
+            raise ValueError("downbeatOffsetBeats override must be an integer")
+        # Consumed during analysis (the downbeat phase is shifted before harmony
+        # and structure are derived from the bar grid); recorded here so the
+        # emitted overridesApplied provenance lists it.
+        applied.append("downbeatOffsetBeats")
 
     if "key" in values or "scale" in values or "camelot" in values:
         key = canonical_key(str(values.get("key", tonal.key)))

@@ -46,6 +46,18 @@ class OverrideTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown override"):
             apply_overrides(make_record(), {"mood": "happy"})
 
+    def test_downbeat_offset_is_validated_and_recorded(self) -> None:
+        result = apply_overrides(make_record(), {"downbeatOffsetBeats": -1})
+        self.assertEqual(result.overrides_applied, ["downbeatOffsetBeats"])
+        # The record itself is unchanged here: the shift is consumed during
+        # analysis, before harmony/structure are derived from the bar grid.
+        self.assertEqual(result.tempo, make_record().tempo)
+
+    def test_downbeat_offset_rejects_non_integers(self) -> None:
+        for bad in (1.5, "2", True, None):
+            with self.assertRaisesRegex(ValueError, "downbeatOffsetBeats"):
+                apply_overrides(make_record(), {"downbeatOffsetBeats": bad})
+
     def test_manual_harmony_and_sections_replace_automatic_values(self) -> None:
         result = apply_overrides(make_record(), {
             "keyRegions": [{

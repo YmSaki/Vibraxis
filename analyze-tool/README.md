@@ -101,6 +101,13 @@ schema v1は高度情報を持たないため変換しません。schema番号�
 `keyRegions / chords / sections`をschema v2と同じcamelCase形式で指定できます。
 override変更は対象曲のキャッシュを無効化します。
 
+`downbeatOffsetBeats`（整数）は小節頭の位相を拍単位でシフトします。人が検聴して
+「解析の小節頭が本物より1拍早い」と判定したら`+1`、1拍遅いなら`-1`です（mod 4）。
+`bpm`と同様に解析時点で消費され、bar グリッドから導出されるコード・構成・pad まで
+一貫してシフトします（`overridesApplied`に記録されます）。注意: この値は自動位相
+判定に対する**相対**補正のため、librosa 更新等で自動判定が変わる可能性があります。
+config hash が変われば対象曲は自動で再解析されるので、その際は再検聴してください。
+
 ## 品質確認と制約
 
 - `tests/golden/annotations.json`の3曲でBPM、全区間被覆、コード出力を自動確認します。

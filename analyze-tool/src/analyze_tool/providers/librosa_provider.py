@@ -63,7 +63,12 @@ class LibrosaAnalyzer:
         *,
         source_name: str | None = None,
         bpm_override: float | None = None,
+        downbeat_offset_beats: int | None = None,
     ) -> AnalysisRecord:
+        if downbeat_offset_beats is not None and (
+            isinstance(downbeat_offset_beats, bool) or not isinstance(downbeat_offset_beats, int)
+        ):
+            raise ValueError("downbeat offset must be an integer number of beats")
         path = path.resolve()
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -124,7 +129,10 @@ class LibrosaAnalyzer:
         if self.profile == "full":
             rms_times = librosa.frames_to_time(np.arange(len(rms_frames)), sr=sample_rate)
             try:
-                downbeats, _phase = infer_downbeats(beat_frames, onset_envelope, sample_rate)
+                downbeats, _phase = infer_downbeats(
+                    beat_frames, onset_envelope, sample_rate,
+                    phase_offset=downbeat_offset_beats or 0,
+                )
                 bars = downbeats.copy()
                 beat_capability = CapabilityInfo(
                     "partial", "librosa-heuristic", self.version, 0.55,

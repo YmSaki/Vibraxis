@@ -15,8 +15,14 @@ def infer_downbeats(
     sample_rate: int,
     *,
     beats_per_bar: int = 4,
+    phase_offset: int = 0,
 ) -> tuple[list[float], int]:
-    """Choose the strongest metrical phase and return heuristic downbeats."""
+    """Choose the strongest metrical phase and return heuristic downbeats.
+
+    `phase_offset` shifts the automatically chosen phase by that many beats
+    (modulo `beats_per_bar`). It exists for human-verified corrections supplied
+    via overrides when the onset heuristic picks the wrong beat as the bar head.
+    """
 
     if len(beat_frames) == 0:
         return [], 0
@@ -24,7 +30,7 @@ def infer_downbeats(
         onset_envelope[min(int(frame), len(onset_envelope) - 1)] for frame in beat_frames
     ])
     phase_scores = [float(np.mean(strengths[phase::beats_per_bar])) for phase in range(beats_per_bar)]
-    phase = int(np.argmax(phase_scores))
+    phase = (int(np.argmax(phase_scores)) + phase_offset) % beats_per_bar
     frames = beat_frames[phase::beats_per_bar]
     return [round(float(value), 4) for value in librosa.frames_to_time(frames, sr=sample_rate)], phase
 
