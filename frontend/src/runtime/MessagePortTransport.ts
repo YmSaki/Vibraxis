@@ -1,6 +1,7 @@
 import {
   VDAP_VERSION,
   type VdapAck,
+  type VdapCommand,
   type VdapDelta,
   type VdapEvent,
   type VdapOrigin,
@@ -82,31 +83,36 @@ const ROLE_ORIGIN: Record<RuntimePortRole, RuntimePortOrigin> = {
   agent: 'agent',
 }
 
-const KNOWN_COMMANDS = new Set([
-  'session.hello',
-  'state.get',
-  'deck.getGrid',
-  'state.subscribe',
-  'state.unsubscribe',
-  'deck.load',
-  'deck.unload',
-  'deck.play',
-  'deck.pause',
-  'deck.seek',
-  'deck.selectPad',
-  'deck.setPad',
-  'deck.clearPad',
-  'deck.setGain',
-  'deck.setEq',
-  'deck.setVelocity',
-  'deck.setTempoInterpretation',
-  'deck.sync',
-  'mixer.setCrossfader',
-  'mixer.rampCrossfader',
-  'mixer.setMasterGain',
-  'schedule.cancel',
-  'runtime.panic',
-])
+// Record<VdapCommand, true> so the compiler rejects this map whenever the
+// shared VdapCommand union gains a member that is missing here — the transport
+// allowlist can never silently drift behind the protocol contract again.
+const KNOWN_COMMAND_MAP: Record<VdapCommand, true> = {
+  'session.hello': true,
+  'state.get': true,
+  'deck.getGrid': true,
+  'state.subscribe': true,
+  'state.unsubscribe': true,
+  'deck.load': true,
+  'deck.unload': true,
+  'deck.play': true,
+  'deck.pause': true,
+  'deck.seek': true,
+  'deck.selectPad': true,
+  'deck.setPad': true,
+  'deck.clearPad': true,
+  'deck.setGain': true,
+  'deck.setEq': true,
+  'deck.setVelocity': true,
+  'deck.setTempoInterpretation': true,
+  'deck.sync': true,
+  'mixer.setCrossfader': true,
+  'mixer.rampCrossfader': true,
+  'mixer.setMasterGain': true,
+  'transition.start': true,
+  'schedule.cancel': true,
+  'runtime.panic': true,
+}
+const KNOWN_COMMANDS = new Set<string>(Object.keys(KNOWN_COMMAND_MAP))
 const REQUEST_CACHE_LIMIT = 128
 const REQUEST_CACHE_WINDOW_MS = 60_000
 
