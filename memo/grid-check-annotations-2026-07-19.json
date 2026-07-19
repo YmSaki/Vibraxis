@@ -1,0 +1,174 @@
+{
+  "tool": "grid-check",
+  "exportedAt": "2026-07-19T11:34:41.953Z",
+  "verdicts": {
+    "116_bpm190": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:15:22.094Z"
+    },
+    "126_bpm142": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "notes": "2拍ずれ。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:17:20.923Z"
+    },
+    "127_bpm155": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:17:49.739Z"
+    },
+    "148_bpm190": {
+      "notes": "1拍早い。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:20:13.460Z",
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes"
+    },
+    "157_bpm175": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:18:43.787Z"
+    },
+    "159_bpm130": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "1拍遅い",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:19:53.640Z"
+    },
+    "165_bpm100": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "drifts",
+      "demoUse": "no",
+      "notes": "1-2拍ずれている。変拍子。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:23:41.654Z"
+    },
+    "160_bpm172": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "drift": "drifts",
+      "demoUse": "no",
+      "notes": "BPM揺れてるし、1-2拍ずれている。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:22:32.312Z"
+    },
+    "225_bpm70": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "drifts",
+      "demoUse": "no",
+      "notes": "1拍遅い。BPMの揺れを検知。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:24:53.911Z"
+    },
+    "236_bpm87": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "no",
+      "notes": "テンポがずれる",
+      "offsetMs": 15,
+      "annotatedAt": "2026-07-19T11:26:14.471Z"
+    },
+    "239_bpm88": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "1拍早い",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:27:24.674Z"
+    },
+    "249_bpm118": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "BPM揺れてるね？",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:28:07.492Z"
+    },
+    "276_bpm103": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "demoUse": "no",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:28:31.379Z"
+    },
+    "301_bpm145": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "demoUse": "no",
+      "notes": "解析結果が間違ってる。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:29:05.178Z"
+    },
+    "315_bpm195": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:30:21.820Z"
+    },
+    "386_bpm98": {
+      "beatOk": "ng",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "テンポ揺れてるね？",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:31:22.448Z"
+    },
+    "443_bpm120": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:32:40.799Z"
+    },
+    "451_bpm190": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "6/4拍子ですね。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:33:56.744Z"
+    },
+    "452_bpm140": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "2拍ずれ。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T11:34:40.110Z"
+    }
+  }
+}

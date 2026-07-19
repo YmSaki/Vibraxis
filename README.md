@@ -7,19 +7,29 @@ the transition, crossfades live, and explains every decision it makes.
 
 Built for **OpenAI Build Week** with Codex and GPT-5.6.
 
-> **Status (work in progress):** the VDAP runtime, two-deck audio engine, and the
-> full manual golden path (load → play → crossfade → panic, all through the
-> protocol) are working. The autonomous beat-matched transition and the GPT-5.6
-> DJ brain are being built next — see the roadmap below.
+> **Status:** the full golden path works end-to-end in the browser — load → play →
+> **agent decision → atomic beat-matched transition** (exact tempo sync, next-bar
+> start, equal-power crossfade, outgoing deck stop) → next decision, plus PANIC.
+> The DJ Agent panel exposes three provider routes (deterministic / Codex local /
+> GPT-5.6 → Codex) with full per-stage provenance and opt-in fallback.
 
 ## Quick start
 
-Requires Node.js 20+.
+Requires Node.js 22.6+ (tested on 24.x — the agent backend runs TypeScript
+natively, no build step).
 
 ```powershell
 npm install
-npm start
+npm run dev
 ```
+
+This starts the Vite UI (`http://localhost:5173`) **and** the DJ Agent backend
+(loopback-only, `127.0.0.1:8787`). No API keys are needed for the full demo on
+the **Deterministic** route. Optional live providers:
+
+- `OPENAI_API_KEY` (env var) enables the **GPT-5.6 → Codex** route.
+- A logged-in Codex CLI enables the **Codex (local)** route (read-only sandbox,
+  network disabled).
 
 Open `http://localhost:5173`, click **ENABLE AUDIO**, and load any track from the
 analyzed library onto Deck A or B. Every control on the golden path — loading,
@@ -67,18 +77,37 @@ agentPort**. The built-in GPT-5.6 provider, a backend process, or an MCP server
 bridging to another assistant all mount on the same contract with the same
 safety rules.
 
-### The two-step brain (planned — order 5-6 of the roadmap)
+### The bounded brain — LLMs decide, they never drive
 
 Track selection is a pipeline, not a free-form LLM call:
 
-1. **Deterministic scoring** (pure functions, unit-tested) ranks candidates by
-   BPM proximity, Camelot-wheel key compatibility, energy direction, and play
-   history.
-2. **GPT-5.6** (Structured Outputs, `DjIntent` / `DjDecision` schemas in
-   `shared/dj/`) interprets the user's natural-language intent, picks from the
-   top-ranked candidates, and writes the reason you see on screen.
+```text
+natural language ─▶ GPT-5.6 ─▶ DjIntent (bounded JSON, schema-validated)
+DjIntent ─▶ deterministic engine ─▶ scored ranking + safe shortlist
+shortlist ─▶ Codex ─▶ DjDecision (which track, which deck, how many bars)
+DjDecision ─▶ schema + semantic + binding validation ─▶ TransitionPlan ─▶ VDAP
+```
 
-If the model is unreachable, the deterministic layer keeps the music going.
+1. **GPT-5.6** (Structured Outputs, model id pinned exactly to `gpt-5.6`)
+   translates the DJ's words into a bounded `DjIntent`. It cannot name tracks
+   that don't exist — intents referencing unknown ids are rejected, never
+   repaired.
+2. **The deterministic engine** (`shared/dj/selection.ts`, a pure function)
+   inspects every candidate against the *actual live tempo* of the playing deck:
+   exact tempo-sync rate within runtime limits, Camelot compatibility, energy
+   direction, recency. It excludes with machine-readable reasons instead of
+   clamping, and produces a disclosed shortlist.
+3. **Codex** (local CLI via `@openai/codex-sdk`, read-only sandbox, network
+   disabled) makes the final musical call from that shortlist. A decision
+   outside the shortlist, targeting the wrong deck, or breaking tempo limits is
+   rejected unchanged.
+
+Three routes are exposed in the UI: `deterministic` (no keys needed),
+`codex-local`, and `gpt56-codex`. **Fallback is opt-in and honest**: a provider
+failure rejects the request unless the caller explicitly opted into
+deterministic fallback — and then the response is labeled
+`decisionProvider: "deterministic"`, `usedDeterministicFallback: true`, with
+per-stage timings shown in the panel's provenance view.
 
 ### An analyzed, rights-cleared crate
 
@@ -92,10 +121,11 @@ is — it knows.
 
 ```text
 frontend/   React + Vite UI, Web Audio deck engine, VDAP runtime (browser)
+backend/    DJ Agent server (node:http, stateless): orchestrator + GPT-5.6/Codex providers
 shared/     Protocol + DJ + analysis types and JSON Schemas (single source of truth)
 analyze-tool/  Offline Python/librosa analyzer -> data/analysis + data/catalog.json
 data/       Analyzed catalog, per-track analysis JSON, sample tracks
-scripts/    Protocol document static checker (npm run check:protocol-docs)
+scripts/    Dev launcher (npm run dev), demo smoke (npm run demo:smoke), protocol doc checker
 ```
 
 Roadmap and design records: `VDAP仕様実装順.md` (implementation order),
@@ -139,14 +169,16 @@ covers the code only — the audio remains under BGMer's terms.
 
 ## 日本語クイックスタート
 
-Node.js 20以降が必要です。
+Node.js 22.6以降（24.x で動作確認）が必要です。
 
 ```powershell
 npm install
-npm start
+npm run dev
 ```
 
-ブラウザで `http://localhost:5173` を開き、**ENABLE AUDIO** をクリックしてから、
-解析済みライブラリの曲をデッキA/Bにロードしてください。ロード・再生・クロス
-フェーダー・PANICを含む全操作がVDAP Runtime経由で動作します。検証は
-`npm run check`（プロトコル検査・スキーマ契約・型・テスト・ビルド）。
+Vite UI（`http://localhost:5173`）と DJ Agent バックエンド（127.0.0.1:8787、
+ループバック限定）が同時に起動します。ブラウザで開き **ENABLE AUDIO** を
+クリック後、曲をデッキAにロードして再生 → DJ AGENT パネルで **REQUEST
+DECISION** → **APPLY DECISION** で、拍同期の自動ミックスが実行されます。
+Deterministic ルートは API キー不要。検証は `npm run check`（プロトコル検査・
+スキーマ契約・型・テスト・ビルド）と `npm run demo:smoke`。
