@@ -66,7 +66,7 @@ const LS_KEY = "vibraxis-grid-check";
 let ctx = null, gain = null, clickGain = null;
 let catalog = [], current = null, analysis = null, buffer = null;
 let srcNode = null, playing = false, startCtxTime = 0, startOffset = 0;
-let schedTimer = null, schedIndex = 0;
+let schedTimer = null;
 let verdict = {};
 
 const store = () => JSON.parse(localStorage.getItem(LS_KEY) || "{}");
@@ -86,8 +86,14 @@ function ensureCtx() {
     clickGain = ctx.createGain(); clickGain.connect(ctx.destination);
   }
   gain.gain.value = Number($("vol").value);
-  clickGain.gain.value = Number($("cvol").value);
+  applyClickGain();
   return ctx.resume();
+}
+
+/** Clicks are pre-scheduled, so ON/OFF and volume act through this gain. */
+function applyClickGain() {
+  if (!clickGain) return;
+  clickGain.gain.value = $("metro").classList.contains("on") ? Number($("cvol").value) : 0;
 }
 
 async function loadTrack() {
@@ -103,7 +109,7 @@ async function loadTrack() {
   analysis = await aRes.json();
   buffer = await ctx.decodeAudioData(await audioRes.arrayBuffer());
   $("seek").max = buffer.duration;
-  const beats = beatTimes().length, downs = downbeatTimes().length;
+  const beats = beatTimes().length, downs = downbeatTimes().size;
   $("meta").textContent = `${current.title} · ${current.bpm} BPM · ${fmt(buffer.duration)} · beats=${beats} downbeats=${downs} · grid status: ${analysis?.capabilities?.beatGrid?.status ?? analysis?.tempo?.status ?? "?"}`;
   verdict = store()[id] || {};
   $("notes").value = verdict.notes || "";
@@ -115,55 +121,58 @@ const beatTimes = () => analysis?.tempo?.beatsSeconds ?? [];
 const downbeatTimes = () => new Set((analysis?.tempo?.downbeatsSeconds ?? []).map((s) => s.toFixed(3)));
 
 function fmt(s) { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}`; }
-const nowPos = () => playing ? startOffset + (ctx.currentTime - startCtxTime) : startOffset;
+const nowPos = () => playing ? startOffset + Math.max(0, ctx.currentTime - startCtxTime) : startOffset;
 
-function play() {
+let clickNodes = [];
+
+async function play() {
   if (!buffer) return;
-  ensureCtx();
+  await ensureCtx();
   srcNode = ctx.createBufferSource();
   srcNode.buffer = buffer;
   srcNode.connect(gain);
-  startCtxTime = ctx.currentTime;
-  srcNode.start(0, startOffset);
+  // One shared anchor: the source starts exactly at startAt, and every click
+  // is pre-scheduled sample-accurately against the same anchor. No interval
+  // callback is on the audio path, so main-thread jank / timer throttling can
+  // no longer skip or displace clicks (that was the audible "wobble").
+  const startAt = ctx.currentTime + 0.15;
+  startCtxTime = startAt;
+  srcNode.start(startAt, startOffset);
   playing = true;
   $("play").textContent = "⏸ 停止";
   const times = beatTimes();
-  schedIndex = times.findIndex((t) => t >= nowPos());
-  if (schedIndex < 0) schedIndex = times.length;
-  schedTimer = setInterval(scheduleClicks, 100);
+  const downs = downbeatTimes();
+  const offset = Number($("offset").value) / 1000;
+  clickNodes = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const t = times[i] + offset;
+    if (t < startOffset || t > buffer.duration) continue;
+    const at = startAt + (t - startOffset);
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.frequency.value = downs.has(times[i].toFixed(3)) ? 1568 : 1047;
+    env.gain.setValueAtTime(1, at);
+    env.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
+    osc.connect(env); env.connect(clickGain);
+    osc.start(at); osc.stop(at + 0.06);
+    clickNodes.push(osc);
+  }
+  schedTimer = setInterval(updateUi, 100);
 }
 
 function stop() {
   if (srcNode) { try { srcNode.stop(); } catch {} srcNode = null; }
-  if (playing) startOffset = nowPos();
+  for (const node of clickNodes) { try { node.stop(); } catch {} }
+  clickNodes = [];
+  if (playing) startOffset = Math.min(nowPos(), buffer ? buffer.duration : 0);
   playing = false;
   $("play").textContent = "▶ 再生";
   clearInterval(schedTimer);
 }
 
-function scheduleClicks() {
+/** UI only — the audio path no longer depends on this timer. */
+function updateUi() {
   if (!playing) return;
-  const times = beatTimes();
-  const downs = downbeatTimes();
-  const offset = Number($("offset").value) / 1000;
-  const horizon = nowPos() + 0.35;
-  while (schedIndex < times.length && times[schedIndex] + offset <= horizon) {
-    const t = times[schedIndex] + offset;
-    if (t >= nowPos() - 0.02) {
-      const at = startCtxTime + (t - startOffset);
-      if ($("metro").classList.contains("on") && at >= ctx.currentTime) {
-        const osc = ctx.createOscillator();
-        const env = ctx.createGain();
-        const isDown = downs.has(times[schedIndex].toFixed(3));
-        osc.frequency.value = isDown ? 1568 : 1047;
-        env.gain.setValueAtTime(1, at);
-        env.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
-        osc.connect(env); env.connect(clickGain);
-        osc.start(at); osc.stop(at + 0.06);
-      }
-    }
-    schedIndex += 1;
-  }
   $("seek").value = nowPos();
   $("pos").textContent = `${fmt(nowPos())} / ${fmt(buffer.duration)}`;
   if (nowPos() >= buffer.duration) stop();
@@ -175,7 +184,7 @@ function seekTo(sec) {
   startOffset = Math.max(0, Math.min(sec, buffer ? buffer.duration : 0));
   $("seek").value = startOffset;
   $("pos").textContent = `${fmt(startOffset)} / ${fmt(buffer ? buffer.duration : 0)}`;
-  if (wasPlaying) play();
+  if (wasPlaying) void play();
 }
 
 function paintVerdictButtons() {
@@ -193,11 +202,12 @@ function renderResults() {
 }
 
 $("load").onclick = loadTrack;
-$("play").onclick = () => (playing ? stop() : play());
-$("metro").onclick = () => $("metro").classList.toggle("on");
+$("play").onclick = () => { if (playing) stop(); else void play(); };
+$("metro").onclick = () => { $("metro").classList.toggle("on"); applyClickGain(); };
 $("vol").oninput = () => { if (gain) gain.gain.value = Number($("vol").value); };
-$("cvol").oninput = () => { if (clickGain) clickGain.gain.value = Number($("cvol").value); };
+$("cvol").oninput = applyClickGain;
 $("seek").oninput = (e) => seekTo(Number(e.target.value));
+$("offset").onchange = () => { if (playing) seekTo(nowPos()); };
 document.querySelectorAll("[data-jump]").forEach((b) => { b.onclick = () => buffer && seekTo(buffer.duration * Number(b.dataset.jump)); });
 document.querySelectorAll("button.v").forEach((b) => {
   b.onclick = () => { verdict[b.dataset.k] = b.dataset.v; paintVerdictButtons(); };
