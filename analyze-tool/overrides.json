@@ -1,8 +1,8 @@
 {
   "tracks": {
     "116_BPM190.mp3": { "bpm": 190, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "126_BPM142.mp3": { "bpm": 142, "rigidGrid": true },
-    "127_BPM155.mp3": { "bpm": 155, "rigidGrid": true },
+    "126_BPM142.mp3": { "bpm": 142, "rigidGrid": true, "downbeatOffsetBeats": 2 },
+    "127_BPM155.mp3": { "bpm": 155, "rigidGrid": true, "downbeatOffsetBeats": 2 },
     "148_BPM190.mp3": { "bpm": 190, "rigidGrid": true, "downbeatOffsetBeats": 1 },
     "157_BPM175.mp3": { "bpm": 175, "rigidGrid": true },
     "159_BPM130.mp3": { "bpm": 130, "rigidGrid": true, "downbeatOffsetBeats": -1 },
