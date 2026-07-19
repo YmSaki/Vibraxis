@@ -1,13 +1,24 @@
 {
   "tracks": {
-    "126_long_BPM142.mp3": { "bpm": 142 },
-    "127_long_BPM155.mp3": { "bpm": 155 },
-    "233_long_BPM163.mp3": { "bpm": 163 },
-    "236_long_BPM87.mp3": { "bpm": 87 },
-    "239_long_BPM88.mp3": { "bpm": 88 },
-    "249_long_BPM118.mp3": { "bpm": 118 },
-    "276_long_BPM103.mp3": { "bpm": 103 },
-    "301_long_BPM145.mp3": { "bpm": 145 },
-    "386_long_BPM98.mp3": { "bpm": 98 }
+    "116_BPM190.mp3": { "bpm": 190 },
+    "126_BPM142.mp3": { "bpm": 142, "downbeatOffsetBeats": 2 },
+    "127_BPM155.mp3": { "bpm": 155 },
+    "148_BPM190.mp3": { "bpm": 190, "downbeatOffsetBeats": 1 },
+    "157_BPM175.mp3": { "bpm": 175 },
+    "159_BPM130.mp3": { "bpm": 130, "downbeatOffsetBeats": -1 },
+    "160_BPM172.mp3": { "bpm": 172 },
+    "165_BPM100.mp3": { "bpm": 100 },
+    "225_BPM70.mp3": { "bpm": 70 },
+    "233_BPM163.mp3": { "bpm": 163 },
+    "236_BPM87.mp3": { "bpm": 87 },
+    "239_BPM88.mp3": { "bpm": 88, "downbeatOffsetBeats": 1 },
+    "249_BPM118.mp3": { "bpm": 118 },
+    "276_BPM103.mp3": { "bpm": 103 },
+    "301_BPM145.mp3": { "bpm": 145 },
+    "315_BPM195.mp3": { "bpm": 195 },
+    "386_BPM98.mp3": { "bpm": 98 },
+    "443_BPM120.mp3": { "bpm": 120 },
+    "451_BPM190.mp3": { "bpm": 190 },
+    "452_BPM140.mp3": { "bpm": 140, "downbeatOffsetBeats": 2 }
   }
 }

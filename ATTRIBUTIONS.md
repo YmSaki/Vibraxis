@@ -23,15 +23,26 @@ selling the tracks as-is.
 
 | File | Title | Artist | BPM | Source |
 |---|---|---|---:|---|
-| `126_long_BPM142.mp3` | セツナフィーバー (Setsuna Fever) | BGMer | 142 | https://bgmer.net/music/126 |
-| `127_long_BPM155.mp3` | 望郷性シグナル (Bokyo-sei Signal) | BGMer | 155 | https://bgmer.net/music/127 |
-| `233_long_BPM163.mp3` | 空想キャンパス (Kuso Campus) | BGMer | 163 | https://bgmer.net/music/233 |
-| `236_long_BPM87.mp3` | 眠れる世界樹 (Nemureru Sekaiju) | BGMer | 87 | https://bgmer.net/music/236 |
-| `239_long_BPM88.mp3` | 夢うつつバイパス (Yumeutsutsu Bypass) | BGMer | 88 | https://bgmer.net/music/239 |
-| `249_long_BPM118.mp3` | 虹の根本まで (Niji no Nemoto made) | BGMer | 118 | https://bgmer.net/music/249 |
-| `276_long_BPM103.mp3` | 遊星の開拓者 (Yusei no Kaitakusha) | BGMer | 103 | https://bgmer.net/music/276 |
-| `301_long_BPM145.mp3` | イビサな気分 (Ibiza na Kibun) | BGMer | 145 | https://bgmer.net/music/301 |
-| `386_long_BPM98.mp3` | ウタタネロンド (Utatane Rondo) | BGMer | 98 | https://bgmer.net/music/386 |
+| `116_BPM190.mp3` | Terraforming | BGMer | 190 | https://bgmer.net/music/116 |
+| `126_BPM142.mp3` | セツナフィーバー (Setsuna Fever) | BGMer | 142 | https://bgmer.net/music/126 |
+| `127_BPM155.mp3` | 望郷性シグナル (Bokyo-sei Signal) | BGMer | 155 | https://bgmer.net/music/127 |
+| `148_BPM190.mp3` | 爆発寸前！ (Bakuhatsu Sunzen!) | BGMer | 190 | https://bgmer.net/music/148 |
+| `157_BPM175.mp3` | スリルな黒タイツ (Thrill na Kuro Tights) | BGMer | 175 | https://bgmer.net/music/157 |
+| `159_BPM130.mp3` | BATTLE MASTER | BGMer | 130 | https://bgmer.net/music/159 |
+| `160_BPM172.mp3` | ドラゴンスレイヤー (Dragon Slayer) | BGMer | 172 | https://bgmer.net/music/160 |
+| `165_BPM100.mp3` | 背後からの追跡者 (Haigo kara no Tsuisekisha) | BGMer | 100 | https://bgmer.net/music/165 |
+| `225_BPM70.mp3` | 孤独の鳥居 (Kodoku no Torii) | BGMer | 70 | https://bgmer.net/music/225 |
+| `233_BPM163.mp3` | 空想キャンパス (Kuso Campus) | BGMer | 163 | https://bgmer.net/music/233 |
+| `236_BPM87.mp3` | 眠れる世界樹 (Nemureru Sekaiju) | BGMer | 87 | https://bgmer.net/music/236 |
+| `239_BPM88.mp3` | 夢うつつバイパス (Yumeutsutsu Bypass) | BGMer | 88 | https://bgmer.net/music/239 |
+| `249_BPM118.mp3` | 虹の根本まで (Niji no Nemoto made) | BGMer | 118 | https://bgmer.net/music/249 |
+| `276_BPM103.mp3` | 遊星の開拓者 (Yusei no Kaitakusha) | BGMer | 103 | https://bgmer.net/music/276 |
+| `301_BPM145.mp3` | イビサな気分 (Ibiza na Kibun) | BGMer | 145 | https://bgmer.net/music/301 |
+| `315_BPM195.mp3` | 細胞の復讐 (Saibo no Fukushu) | BGMer | 195 | https://bgmer.net/music/315 |
+| `386_BPM98.mp3` | ウタタネロンド (Utatane Rondo) | BGMer | 98 | https://bgmer.net/music/386 |
+| `443_BPM120.mp3` | 偶発の讃歌 (Guhatsu no Sanka) | BGMer | 120 | https://bgmer.net/music/443 |
+| `451_BPM190.mp3` | 荒波の海戦 (Aranami no Kaisen) | BGMer | 190 | https://bgmer.net/music/451 |
+| `452_BPM140.mp3` | 警告サイン (Keikoku Sign) | BGMer | 140 | https://bgmer.net/music/452 |
 
 Music: BGMer — https://bgmer.net
 
