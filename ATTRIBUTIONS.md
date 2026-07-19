@@ -44,6 +44,13 @@ selling the tracks as-is.
 | `451_BPM190.mp3` | 荒波の海戦 (Aranami no Kaisen) | BGMer | 190 | https://bgmer.net/music/451 |
 | `452_BPM140.mp3` | 警告サイン (Keikoku Sign) | BGMer | 140 | https://bgmer.net/music/452 |
 
+Note: four of the bundled tracks (`165_BPM100.mp3`, `225_BPM70.mp3`,
+`301_BPM145.mp3`, `451_BPM190.mp3`, kept under `data/sample-excluded/`) are not
+part of the demo catalog: their beat grids did not pass the human listening
+gate under the current 4/4 fixed-grid analyzer (off-beat anchor, 2:3 tempo
+perception, 6/4 metre) and one was excluded by curation. They remain bundled
+with full attribution and can return once the grid solver supports those cases.
+
 Music: BGMer — https://bgmer.net
 
 ## Third-party software
