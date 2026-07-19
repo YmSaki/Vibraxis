@@ -3,4 +3,4 @@
 from .models import AnalysisRecord
 
 __all__ = ["AnalysisRecord"]
-__version__ = "0.2.2"
+__version__ = "0.2.3"

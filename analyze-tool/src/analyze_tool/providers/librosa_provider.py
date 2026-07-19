@@ -148,10 +148,15 @@ class LibrosaAnalyzer:
         if self.profile == "full":
             rms_times = librosa.frames_to_time(np.arange(len(rms_frames)), sr=sample_rate)
             try:
-                downbeats, _phase = infer_downbeats(
+                downbeats, phase = infer_downbeats(
                     beat_frames, onset_envelope, sample_rate,
                     phase_offset=downbeat_offset_beats or 0,
                 )
+                if rigid_grid:
+                    # Frames are only used to pick the strongest phase; take the
+                    # downbeat TIMES from the exact rigid beats so they stay a
+                    # strict subset of beatsSeconds (no ~hop-size quantization).
+                    downbeats = [round(float(value), 4) for value in beats[phase::4]]
                 bars = downbeats.copy()
                 beat_capability = CapabilityInfo(
                     "partial", "librosa-heuristic", self.version, 0.55,
