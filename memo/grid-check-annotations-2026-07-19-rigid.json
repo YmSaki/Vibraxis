@@ -1,0 +1,185 @@
+{
+  "tool": "grid-check",
+  "exportedAt": "2026-07-19T15:38:49.482Z",
+  "verdicts": {
+    "116_bpm190": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "2拍ずれている",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T14:19:22.106Z"
+    },
+    "126_bpm142": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T14:56:38.917Z",
+      "demoUse": "yes"
+    },
+    "127_bpm155": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "2拍ずれ",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T14:58:15.977Z"
+    },
+    "148_bpm190": {
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:00:07.253Z",
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes"
+    },
+    "157_bpm175": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:01:48.335Z"
+    },
+    "159_bpm130": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:03:53.124Z"
+    },
+    "165_bpm100": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "drifts",
+      "demoUse": "no",
+      "notes": "1.5拍早い。中盤までいかないと、テンポがつかみづらい。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:12:20.707Z"
+    },
+    "160_bpm172": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "no",
+      "notes": "2拍ずれている。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:06:08.808Z"
+    },
+    "225_bpm70": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "no",
+      "notes": "2拍遅い。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:14:09.471Z"
+    },
+    "236_bpm87": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "no",
+      "notes": "テンポがずれる",
+      "offsetMs": 15,
+      "annotatedAt": "2026-07-19T11:26:14.471Z"
+    },
+    "239_bpm88": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "1拍遅い",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:18:31.072Z"
+    },
+    "249_bpm118": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "1拍遅い",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:20:32.729Z"
+    },
+    "276_bpm103": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "demoUse": "no",
+      "notes": "1拍早い",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:23:18.014Z",
+      "drift": "none"
+    },
+    "301_bpm145": {
+      "beatOk": "ng",
+      "downbeatOk": "ng",
+      "demoUse": "no",
+      "notes": "テンポ解析ミス",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:25:33.346Z"
+    },
+    "315_bpm195": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "1拍早い",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:27:19.564Z"
+    },
+    "386_bpm98": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:29:29.531Z"
+    },
+    "443_bpm120": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "2拍ずれ",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:31:35.998Z"
+    },
+    "451_bpm190": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "6/4拍子ですね。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:33:14.167Z"
+    },
+    "452_bpm140": {
+      "beatOk": "ok",
+      "downbeatOk": "ok",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:33:37.325Z"
+    },
+    "233_bpm163": {
+      "beatOk": "ok",
+      "downbeatOk": "ng",
+      "drift": "none",
+      "demoUse": "yes",
+      "notes": "2拍ずれている。",
+      "offsetMs": 0,
+      "annotatedAt": "2026-07-19T15:16:22.857Z"
+    }
+  }
+}
