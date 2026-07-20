@@ -5,7 +5,8 @@
  * This provider does NOT trust or validate the model output; it returns the raw
  * text and the model id the API reports. The orchestrator schema- and
  * semantically-validates it and rejects anything non-conforming unchanged. The
- * model id is passed through verbatim (config: "gpt-5.6") and is never silently
+ * model id is passed through verbatim (config.gpt56.model, e.g. "gpt-5.6-sol" /
+ * "gpt-5.6-luna", selectable via the GPT56_MODEL env var) and is never silently
  * substituted here.
  */
 

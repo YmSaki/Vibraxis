@@ -237,7 +237,9 @@ function isCapability(value: unknown): value is AgentCapability {
   if (value.codexCandidateShortlist !== null && (!Number.isInteger(value.codexCandidateShortlist) || (value.codexCandidateShortlist as number) <= 0)) return false
   if (!isRecord(value.fallback) || value.fallback.optInRequired !== true || !Array.isArray(value.fallback.modes)) return false
   if (value.fallback.modes.length !== 2 || value.fallback.modes[0] !== 'reject' || value.fallback.modes[1] !== 'deterministic') return false
-  if (!isRecord(value.gpt56) || value.gpt56.model !== 'gpt-5.6' || !isNumberInRange(value.gpt56.deadlineMs, Number.MIN_VALUE, Number.MAX_VALUE)) return false
+  // The GPT-5.6 model is caller-selectable (GPT56_MODEL, e.g. gpt-5.6-luna) but
+  // must stay in the gpt-5.6 family — mirrors the backend's assertAgentConfig.
+  if (!isRecord(value.gpt56) || typeof value.gpt56.model !== 'string' || !value.gpt56.model.startsWith('gpt-5.6') || !isNumberInRange(value.gpt56.deadlineMs, Number.MIN_VALUE, Number.MAX_VALUE)) return false
   if (!isRecord(value.codex) || !isNumberInRange(value.codex.deadlineMs, Number.MIN_VALUE, Number.MAX_VALUE)) return false
   return typeof value.codex.workingDirectory === 'string'
     && value.codex.sandboxMode === 'read-only'

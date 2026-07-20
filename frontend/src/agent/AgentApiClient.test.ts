@@ -22,7 +22,7 @@ describe('AgentApiClient', () => {
       routes: ['deterministic'],
       codexCandidateShortlist: 5,
       fallback: { optInRequired: true, modes: ['reject', 'deterministic'] },
-      gpt56: { model: 'gpt-5.6', deadlineMs: 1000 },
+      gpt56: { model: 'gpt-5.6-sol', deadlineMs: 1000 },
       codex: {
         workingDirectory: '/repo',
         sandboxMode: 'read-only',

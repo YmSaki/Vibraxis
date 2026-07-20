@@ -55,7 +55,7 @@ describe("timeouts and late results", () => {
 
   it("gpt56-codex: GPT timeout rejects (cannot invent an intent) without a fallback intent", async () => {
     const intentClient = fakeIntentClient({
-      respond: () => delayed({ text: "{}", model: "gpt-5.6" }, 500),
+      respond: () => delayed({ text: "{}", model: "gpt-5.6-sol" }, 500),
     });
     const rec = fakeCodex({ respond: () => JSON.stringify(decision()) });
     const orch = buildOrchestrator({ intentClient, codexClient: rec.client, config: fastConfig(30) });
@@ -70,7 +70,7 @@ describe("total request deadline", () => {
     const intentClient = fakeIntentClient({
       respond: async () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
-        return { text: JSON.stringify(intent()), model: "gpt-5.6" };
+        return { text: JSON.stringify(intent()), model: "gpt-5.6-sol" };
       },
     });
     const rec = fakeCodex({

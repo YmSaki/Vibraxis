@@ -59,11 +59,20 @@ describe("agent configuration", () => {
     })).toThrow("config.routes must contain unique supported routes");
   });
 
-  it("rejects a model id that would make fixed GPT-5.6 provenance untruthful", () => {
+  it("rejects a model id outside the GPT-5.6 family (would make provenance untruthful)", () => {
     expect(() => assertAgentConfig({
       ...DEFAULT_AGENT_CONFIG,
-      gpt56: { ...DEFAULT_AGENT_CONFIG.gpt56, model: "gpt-5.6-custom" },
-    })).toThrow('config.gpt56.model must be exactly "gpt-5.6"');
+      gpt56: { ...DEFAULT_AGENT_CONFIG.gpt56, model: "gpt-4o" },
+    })).toThrow('config.gpt56.model must be a GPT-5.6 model id (starting with "gpt-5.6")');
+  });
+
+  it("accepts caller-selected GPT-5.6 variants (sol/luna)", () => {
+    for (const model of ["gpt-5.6-sol", "gpt-5.6-luna"]) {
+      expect(() => assertAgentConfig({
+        ...DEFAULT_AGENT_CONFIG,
+        gpt56: { ...DEFAULT_AGENT_CONFIG.gpt56, model },
+      })).not.toThrow();
+    }
   });
 });
 

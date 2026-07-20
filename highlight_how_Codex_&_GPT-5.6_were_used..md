@@ -16,7 +16,7 @@ DjDecision ─▶ schema + semantic + binding validation ─▶ beat-matched tra
 ### GPT-5.6 — the interpreter
 
 - Called server-side via the OpenAI **Structured Outputs** API with the `DjIntent` JSON Schema (`shared/dj/intent.schema.json`).
-- The model id is pinned **exactly** to `gpt-5.6`; if the API reports any other model, the response is rejected (`gpt_model_mismatch`) rather than silently accepted.
+- The model is a GPT-5.6 variant selected via the `GPT56_MODEL` env var (e.g. `gpt-5.6-luna`), validated at startup to stay within the `gpt-5.6` family. The requested id and the id the API reports must match **exactly**; any other model is rejected (`gpt_model_mismatch`) rather than silently accepted.
 - Its only job: turn "keep the energy high but mix into something a little faster" into a bounded intent (energy/tempo direction, harmonic priority, urgency, optional requested track). It cannot invent track ids — an intent referencing a track that was not offered is rejected by semantic validation.
 
 ### Codex — the selector

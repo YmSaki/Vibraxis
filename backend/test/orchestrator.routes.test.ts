@@ -169,7 +169,7 @@ describe("codex-local route", () => {
 describe("gpt56-codex route", () => {
   it("chains GPT-5.6 intent -> Codex decision and attributes both stages", async () => {
     const intentClient = fakeIntentClient({
-      respond: () => ({ text: JSON.stringify(intent({ energyDirection: "increase" })), model: "gpt-5.6" }),
+      respond: () => ({ text: JSON.stringify(intent({ energyDirection: "increase" })), model: "gpt-5.6-sol" }),
     });
     const rec = fakeCodex({ respond: () => JSON.stringify(decision()) });
     const orch = buildOrchestrator({ intentClient, codexClient: rec.client });
@@ -190,7 +190,7 @@ describe("gpt56-codex route", () => {
 
   it("rejects a fabricated GPT intent (requestedTrackId not a candidate) unchanged", async () => {
     const intentClient = fakeIntentClient({
-      respond: () => ({ text: JSON.stringify(intent({ requestedTrackId: "ghost" })), model: "gpt-5.6" }),
+      respond: () => ({ text: JSON.stringify(intent({ requestedTrackId: "ghost" })), model: "gpt-5.6-sol" }),
     });
     const rec = fakeCodex({ respond: () => JSON.stringify(decision()) });
     const orch = buildOrchestrator({ intentClient, codexClient: rec.client });
@@ -200,7 +200,7 @@ describe("gpt56-codex route", () => {
   });
 
   it("rejects when text is missing", async () => {
-    const orch = buildOrchestrator({ intentClient: fakeIntentClient({ respond: () => ({ text: "{}", model: "gpt-5.6" }) }) });
+    const orch = buildOrchestrator({ intentClient: fakeIntentClient({ respond: () => ({ text: "{}", model: "gpt-5.6-sol" }) }) });
     const res = await orch.decide({ route: "gpt56-codex", context: context(), text: "" });
     expect(res.outcome).toBe("rejected");
     if (res.outcome === "rejected") expect(res.failure.code).toBe("invalid_request");

@@ -84,7 +84,7 @@ describe("fallback governance — codex failure with opt-in", () => {
   });
 
   it("gpt56-codex: Codex failure falls back to deterministic using the GPT intent (opt-in only)", async () => {
-    const intentClient = fakeIntentClient({ respond: () => ({ text: JSON.stringify(validIntent), model: "gpt-5.6" }) });
+    const intentClient = fakeIntentClient({ respond: () => ({ text: JSON.stringify(validIntent), model: "gpt-5.6-sol" }) });
     const rec = fakeCodex({ respond: () => { throw new Error("codex down"); } });
     const orch = buildOrchestrator({ intentClient, codexClient: rec.client });
     const res = await orch.decide({

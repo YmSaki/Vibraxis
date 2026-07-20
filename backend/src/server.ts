@@ -8,6 +8,7 @@
  * this is reported truthfully at call time, not assumed here).
  */
 
+import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -43,8 +44,18 @@ export function buildAgent(
   enableCodex = true,
 ): BuiltAgent {
   const workingDirectory = repositoryRoot();
+  // The GPT-5.6 model id is caller-selectable via GPT56_MODEL (e.g.
+  // "gpt-5.6-luna" for the cheapest variant); unset keeps the default. It is
+  // validated as a GPT-5.6 family id by the orchestrator's assertAgentConfig and
+  // must match the id the API reports exactly — never silently substituted.
+  const modelOverride = env.GPT56_MODEL;
+  const gpt56Model =
+    modelOverride !== undefined && modelOverride.length > 0
+      ? modelOverride
+      : DEFAULT_AGENT_CONFIG.gpt56.model;
   const config: AgentConfig = {
     ...DEFAULT_AGENT_CONFIG,
+    gpt56: { ...DEFAULT_AGENT_CONFIG.gpt56, model: gpt56Model },
     codex: { ...DEFAULT_AGENT_CONFIG.codex, workingDirectory },
   };
 
@@ -92,7 +103,22 @@ export function startServer(port = Number(process.env.AGENT_PORT ?? 8787)) {
   return server;
 }
 
+/**
+ * Loads a repo-root `.env` into process.env when present, so a local key file is
+ * honored without any dependency. Only invoked when this module runs as the
+ * entry point — never on import, so tests (which pass env explicitly) are
+ * unaffected. Node applies file values without overriding vars already exported
+ * in the shell, so an explicit `OPENAI_API_KEY=…` in the environment still wins.
+ */
+function loadDotEnvIfPresent(): void {
+  const envPath = resolve(repositoryRoot(), ".env");
+  if (existsSync(envPath)) {
+    process.loadEnvFile(envPath);
+  }
+}
+
 // Start only when executed directly (not when imported by tests).
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  loadDotEnvIfPresent();
   startServer();
 }

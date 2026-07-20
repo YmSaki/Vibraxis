@@ -70,7 +70,7 @@ describe("http server", () => {
     const body: any = await res.json();
     expect(body.routes).toContain("gpt56-codex");
     expect(body.fallback.optInRequired).toBe(true);
-    expect(body.gpt56.model).toBe("gpt-5.6");
+    expect(body.gpt56.model).toBe("gpt-5.6-sol");
     expect(body.codex.sandboxMode).toBe("read-only");
     expect(body.availability).toEqual({ gpt56: false, codexLocal: true });
     // No secrets leak.

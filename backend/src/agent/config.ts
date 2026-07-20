@@ -7,6 +7,13 @@
 
 import type { ProviderRoute } from "./types.ts";
 
+/**
+ * Every configured GPT-5.6 model id must start with this. Guards the fixed
+ * "gpt-5.6" provenance label while allowing a caller to pick a concrete variant
+ * (e.g. "-sol", "-luna") via the GPT56_MODEL env var.
+ */
+export const GPT56_MODEL_FAMILY_PREFIX = "gpt-5.6";
+
 /** Reasoning effort forwarded to the Codex CLI. Matches the SDK's union. */
 export type CodexReasoningEffort =
   | "minimal"
@@ -17,9 +24,14 @@ export type CodexReasoningEffort =
 
 export interface Gpt56Config {
   /**
-   * The exact public model id. Preserved verbatim; never silently substituted.
-   * If a deployment's SDK/API rejects it, that surfaces as a provider error
-   * rather than a swapped model.
+   * The exact public model id to request, e.g. "gpt-5.6-sol" or "gpt-5.6-luna".
+   * Set at composition time from the `GPT56_MODEL` env var (see server.ts);
+   * defaults to "gpt-5.6-sol". It is requested verbatim and the id the API
+   * reports must equal it exactly (orchestrator gpt_model_mismatch) — never
+   * silently substituted. Must be a GPT-5.6 model (see assertAgentConfig) so the
+   * fixed "gpt-5.6" provenance label stays truthful. Note: the bare family alias
+   * "gpt-5.6" resolves server-side to a concrete id (e.g. "gpt-5.6-sol"), which
+   * would then fail the exact-match — configure a concrete id, not the alias.
    */
   readonly model: string;
   /** Deadline for the GPT-5.6 intent call, in ms. */
@@ -65,7 +77,7 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = Object.freeze({
   ] as const),
   codexCandidateShortlist: 5,
   gpt56: Object.freeze({
-    model: "gpt-5.6",
+    model: "gpt-5.6-sol",
     deadlineMs: 15_000,
   }),
   codex: Object.freeze({
@@ -94,8 +106,16 @@ export function assertAgentConfig(config: AgentConfig): void {
   if (shortlist !== null && (!Number.isInteger(shortlist) || shortlist <= 0)) {
     throw new TypeError("config.codexCandidateShortlist must be null or a positive integer");
   }
-  if (config.gpt56.model !== "gpt-5.6") {
-    throw new TypeError('config.gpt56.model must be exactly "gpt-5.6"');
+  if (
+    typeof config.gpt56.model !== "string" ||
+    !config.gpt56.model.startsWith(GPT56_MODEL_FAMILY_PREFIX)
+  ) {
+    // The model is caller-selectable (GPT56_MODEL) but must stay within the
+    // GPT-5.6 family, otherwise the fixed "gpt-5.6" provenance label would lie.
+    // Reject anything else rather than reinterpreting it (AGENTS.md §0).
+    throw new TypeError(
+      `config.gpt56.model must be a GPT-5.6 model id (starting with "${GPT56_MODEL_FAMILY_PREFIX}")`,
+    );
   }
   for (const [name, value] of [
     ["config.gpt56.deadlineMs", config.gpt56.deadlineMs],
