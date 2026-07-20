@@ -1,5 +1,7 @@
 # Vibraxis — AI Club DJ
 
+[![check](https://github.com/YmSaki/Vibraxis/actions/workflows/ci.yml/badge.svg)](https://github.com/YmSaki/Vibraxis/actions/workflows/ci.yml)
+
 Vibraxis is an AI club DJ. You tell it what the room needs in plain language —
 "keep it mellow while we eat, then slowly pick it up" — and it selects key- and
 tempo-compatible tracks from a bundled, fully licensed music library, beat-matches
@@ -27,7 +29,10 @@ This starts the Vite UI (`http://localhost:5173`) **and** the DJ Agent backend
 (loopback-only, `127.0.0.1:8787`). No API keys are needed for the full demo on
 the **Deterministic** route. Optional live providers:
 
-- `OPENAI_API_KEY` (env var) enables the **GPT-5.6 → Codex** route.
+- `OPENAI_API_KEY` (env var) enables the **GPT-5.6 → Codex** route. Copy
+  `.env.example` to `.env` and set it there — the backend loads `.env` on start.
+- `GPT56_MODEL` (optional) selects the GPT-5.6 variant, e.g. `gpt-5.6-luna`
+  (cheapest) or `gpt-5.6-sol` (default). Must be a `gpt-5.6*` id.
 - A logged-in Codex CLI enables the **Codex (local)** route (read-only sandbox,
   network disabled).
 
@@ -88,7 +93,9 @@ shortlist ─▶ Codex ─▶ DjDecision (which track, which deck, how many bars
 DjDecision ─▶ schema + semantic + binding validation ─▶ TransitionPlan ─▶ VDAP
 ```
 
-1. **GPT-5.6** (Structured Outputs, model id pinned exactly to `gpt-5.6`)
+1. **GPT-5.6** (Structured Outputs; the configured `gpt-5.6*` model — e.g.
+   `gpt-5.6-luna` — and the id the API reports must match exactly, else the
+   response is rejected as `gpt_model_mismatch`, never silently swapped)
    translates the DJ's words into a bounded `DjIntent`. It cannot name tracks
    that don't exist — intents referencing unknown ids are rejected, never
    repaired.
