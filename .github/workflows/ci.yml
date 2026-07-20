@@ -1,0 +1,37 @@
+name: check
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: full gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node 22.6+ is required — backend and scripts run .ts/.mjs directly
+          # under Node's native type-stripping (see CLAUDE.md).
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Full gate (protocol-docs + contracts + typecheck + tests + build)
+        run: npm run check
+
+      - name: Deterministic end-to-end smoke (no API keys)
+        run: npm run demo:smoke
