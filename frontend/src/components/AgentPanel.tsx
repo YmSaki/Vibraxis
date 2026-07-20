@@ -107,6 +107,12 @@ export function AgentPanel(props: AgentPanelProps) {
   const [fallbackMode, setFallbackMode] = useState<FallbackMode>('reject')
   const [intentForm, setIntentForm] = useState<IntentForm>(DEFAULT_INTENT_FORM)
 
+  // Floating "talk to the DJ" chat: an always-available natural-language surface
+  // that drives the SAME gpt56-codex pipeline. Per the product rule it affects
+  // SELECTION only — the human still triggers the mix (APPLY).
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+
   const [decidePhase, setDecidePhase] = useState<DecidePhase>('idle')
   const [response, setResponse] = useState<AgentDecideResponse | null>(null)
   const [decisionContext, setDecisionContext] = useState<DjContext | null>(null)
@@ -173,7 +179,12 @@ export function AgentPanel(props: AgentPanelProps) {
     setApplyTransitionIntentId(null)
   }
 
-  const onDecide = () => {
+  const onDecide = (override?: {
+    route?: ProviderRoute
+    text?: string
+    fallbackMode?: FallbackMode
+    intent?: DjIntent | null
+  }) => {
     // A new decision must not race an in-flight apply (finding 6/7).
     if (applyRunning) return
     resetOutcome()
@@ -185,8 +196,15 @@ export function AgentPanel(props: AgentPanelProps) {
       setFormRejection('Runtime state is not available.')
       return
     }
+    // An override (e.g. from the floating chat) wins over the form state, which
+    // is set asynchronously and would otherwise be one render stale.
+    const effRoute = override?.route ?? route
+    const effText = override?.text ?? text
+    const effFallback = override?.fallbackMode ?? fallbackMode
+    const effNeedsIntent = effRoute !== 'gpt56-codex' || effFallback === 'deterministic'
+    const effIntent = effNeedsIntent ? (override?.intent ?? toDjIntent(intentForm)) : null
     const built = buildDecideRequest(
-      { route, text, fallbackMode, intent: needsIntent ? toDjIntent(intentForm) : null },
+      { route: effRoute, text: effText, fallbackMode: effFallback, intent: effIntent },
       contextResult.context,
     )
     if (!built.ok) {
@@ -222,6 +240,17 @@ export function AgentPanel(props: AgentPanelProps) {
         setDecideError(message)
         setDecidePhase('settled')
       })
+  }
+
+  const onChatSend = () => {
+    const request = chatInput.trim()
+    if (request.length === 0 || applyRunning || decidePhase === 'deciding') return
+    // Mirror the request into the form controls (transparency), and drive the
+    // decision from explicit values so it never races the async setState.
+    setRoute('gpt56-codex')
+    setFallbackMode('deterministic')
+    setText(request)
+    onDecide({ route: 'gpt56-codex', text: request, fallbackMode: 'deterministic', intent: toDjIntent(intentForm) })
   }
 
   const applyEvaluation =
@@ -472,6 +501,93 @@ export function AgentPanel(props: AgentPanelProps) {
           onApply={onApply}
         />
       )}
+
+      <div className="agent-chat">
+        {chatOpen && (
+          <div className="agent-chat__dock" role="dialog" aria-label="Talk to the DJ">
+            <div className="agent-chat__head">
+              <span className="agent-chat__title">TALK TO THE DJ</span>
+              <span className={`agent-flow agent-flow--${flowState.toLowerCase()}`}>{flowState}</span>
+              <button type="button" className="agent-chat__close" aria-label="Close chat" onClick={() => setChatOpen(false)}>×</button>
+            </div>
+            <p className="agent-chat__hint">
+              Ask in plain language — GPT-5.6 reads your intent and picks the next track. It only chooses; you still run the mix.
+            </p>
+            {capability !== null && !capability.availability.gpt56 && (
+              <div className="agent-note agent-note--warn" role="status">
+                GPT-5.6 is unavailable (set <code>OPENAI_API_KEY</code> in <code>.env</code> and restart the dev server).
+              </div>
+            )}
+            <div className="agent-chat__body">
+              {decidePhase === 'deciding' && <div className="agent-chat__thinking">The DJ is thinking…</div>}
+              {decideError && <div className="agent-note agent-note--error" role="alert">{decideError}</div>}
+              {response !== null && response.outcome === 'rejected' && decidePhase !== 'deciding' && (
+                <div className="agent-note agent-note--error" role="alert">
+                  Rejected: {response.failure.code}
+                </div>
+              )}
+              {response !== null && response.outcome === 'decided' && decidePhase !== 'deciding' && (
+                <div className="agent-chat__result">
+                  <p className="agent-chat__rationale">“{response.intent.value.rationale}”</p>
+                  <div className="agent-chat__next">
+                    <span className="agent-muted">NEXT</span>
+                    <strong>{displayNextTrack ? displayNextTrack.title : response.decision.nextTrackId}</strong>
+                    {displayNextTrack && (
+                      <span className="agent-muted">{displayNextTrack.bpm.toFixed(0)} BPM · {displayNextTrack.camelot}</span>
+                    )}
+                  </div>
+                  <div className="agent-chat__source agent-muted">
+                    via {intentSourceLabel(response.intent.source)} · {decisionProviderLabel(response.decisionProvider, response.usedDeterministicFallback)}
+                  </div>
+                  <button
+                    type="button"
+                    className="agent-submit agent-submit--apply agent-chat__apply"
+                    onClick={onApply}
+                    disabled={applyEvaluation?.status !== 'ready' || applyRunning || getApplyClient() === null}
+                  >
+                    {applyRunning ? 'MIXING…' : 'APPLY MIX'}
+                  </button>
+                  {applyEvaluation?.status === 'blocked' && (
+                    <div className="agent-note agent-note--warn" role="status">Can’t mix yet ({applyEvaluation.reason.code}).</div>
+                  )}
+                  {applyResult?.status === 'completed' && (
+                    <div className="agent-note agent-note--ok" role="status">Mixed in.</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <form className="agent-chat__form" onSubmit={(event) => { event.preventDefault(); onChatSend() }}>
+              <textarea
+                className="agent-chat__input"
+                rows={2}
+                value={chatInput}
+                placeholder="e.g. pick it up — something a little faster"
+                disabled={applyRunning}
+                onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onChatSend() }
+                }}
+              />
+              <button
+                type="submit"
+                className="agent-submit agent-chat__send"
+                disabled={decidePhase === 'deciding' || applyRunning || chatInput.trim().length === 0}
+              >
+                {decidePhase === 'deciding' ? '…' : 'SEND'}
+              </button>
+            </form>
+          </div>
+        )}
+        <button
+          type="button"
+          className="agent-chat__launcher"
+          aria-label={chatOpen ? 'Close DJ chat' : 'Talk to the DJ'}
+          aria-expanded={chatOpen}
+          onClick={() => setChatOpen((open) => !open)}
+        >
+          {chatOpen ? '×' : '💬'}
+        </button>
+      </div>
     </section>
   )
 }

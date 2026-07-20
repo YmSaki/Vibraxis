@@ -11,6 +11,7 @@ import { fetchCatalog, type CatalogTrack } from './catalog'
 import { Deck, type EqBand } from './components/Deck'
 import { TrackLibrary } from './components/TrackLibrary'
 import { AgentPanel } from './components/AgentPanel'
+import { AutoDj } from './components/AutoDj'
 import { AgentApiClient, AgentApiError } from './agent/AgentApiClient'
 import type { VelocityLimits } from './agent/djContext'
 import type { AgentCapability } from './agent/contract'
@@ -209,6 +210,17 @@ export default function App() {
     run(async (vdap) => {
       await engine.resume()
       await settleMutation(vdap.mutate('deck.load', { deckId: id, source: { kind: 'catalog', trackId: track.trackId } }))
+      objectUrls.clear(id)
+      resetDeckUiState(id)
+    })
+
+  // Bootstraps the autonomous set: load a track and start it on the given deck,
+  // so the AutoDj conductor has an active deck to build the endless mix from.
+  const bootstrapTrack = (id: DeckId, trackId: string) =>
+    run(async (vdap) => {
+      await engine.resume()
+      await settleMutation(vdap.mutate('deck.load', { deckId: id, source: { kind: 'catalog', trackId } }))
+      await settleMutation(vdap.mutate('deck.play', { deckId: id }))
       objectUrls.clear(id)
       resetDeckUiState(id)
     })
@@ -462,6 +474,17 @@ export default function App() {
 
         <Deck {...deckProps('B')} accent="magenta" />
       </div>
+
+      <AutoDj
+        api={agentApi}
+        capability={capability}
+        runtimeState={runtimeState}
+        tracks={tracks}
+        velocity={velocity}
+        recentlyPlayedTrackIds={recentlyPlayedTrackIds}
+        getApplyClient={() => agentClientRef.current}
+        onBootstrap={bootstrapTrack}
+      />
 
       <AgentPanel
         api={agentApi}
