@@ -10,3 +10,7 @@ __pycache__/
 .venv/
 *.wav
 *.tsbuildinfo
+
+# Local investigation notes and annotation exports (kept out of git)
+memo/
+/section-annotations*.json
