@@ -26,82 +26,82 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 10.4556,
+          "endSeconds": 1.6135,
           "startBeat": 0,
-          "endBeat": 33,
+          "endBeat": 5,
           "startBar": 0,
-          "endBar": 9
+          "endBar": 2
         },
         {
-          "label": "build",
-          "startSeconds": 10.4556,
-          "endSeconds": 29.403,
-          "startBeat": 33,
-          "endBeat": 93,
-          "startBar": 9,
-          "endBar": 24
+          "label": "breakdown",
+          "startSeconds": 1.6135,
+          "endSeconds": 9.1924,
+          "startBeat": 5,
+          "endBeat": 29,
+          "startBar": 2,
+          "endBar": 8
         },
         {
           "label": "chorus",
-          "startSeconds": 29.403,
-          "endSeconds": 39.5082,
-          "startBeat": 93,
-          "endBeat": 125,
-          "startBar": 24,
-          "endBar": 32
-        },
-        {
-          "label": "verse",
-          "startSeconds": 39.5082,
+          "startSeconds": 9.1924,
           "endSeconds": 72.3503,
-          "startBeat": 125,
+          "startBeat": 29,
           "endBeat": 229,
-          "startBar": 32,
+          "startBar": 8,
           "endBar": 58
         },
         {
-          "label": "chorus",
+          "label": "breakdown",
           "startSeconds": 72.3503,
-          "endSeconds": 86.2451,
+          "endSeconds": 78.6661,
           "startBeat": 229,
-          "endBeat": 273,
+          "endBeat": 249,
           "startBar": 58,
-          "endBar": 69
-        },
-        {
-          "label": "build",
-          "startSeconds": 86.2451,
-          "endSeconds": 106.4556,
-          "startBeat": 273,
-          "endBeat": 337,
-          "startBar": 69,
-          "endBar": 85
+          "endBar": 63
         },
         {
           "label": "chorus",
-          "startSeconds": 106.4556,
-          "endSeconds": 120.3503,
-          "startBeat": 337,
-          "endBeat": 381,
-          "startBar": 85,
-          "endBar": 96
+          "startSeconds": 78.6661,
+          "endSeconds": 83.7187,
+          "startBeat": 249,
+          "endBeat": 265,
+          "startBar": 63,
+          "endBar": 67
         },
         {
-          "label": "verse",
-          "startSeconds": 120.3503,
-          "endSeconds": 134.2451,
-          "startBeat": 381,
-          "endBeat": 425,
-          "startBar": 96,
-          "endBar": 107
+          "label": "breakdown",
+          "startSeconds": 83.7187,
+          "endSeconds": 90.0345,
+          "startBeat": 265,
+          "endBeat": 285,
+          "startBar": 67,
+          "endBar": 72
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 90.0345,
+          "endSeconds": 135.5082,
+          "startBeat": 285,
+          "endBeat": 429,
+          "startBar": 72,
+          "endBar": 108
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 135.5082,
+          "endSeconds": 140.5609,
+          "startBeat": 429,
+          "endBeat": 445,
+          "startBar": 108,
+          "endBar": 112
         },
         {
           "label": "outro",
-          "startSeconds": 134.2451,
+          "startSeconds": 140.5609,
           "endSeconds": 149.424,
-          "startBeat": 425,
+          "startBeat": 445,
           "endBeat": 474,
-          "startBar": 107,
+          "startBar": 112,
           "endBar": 120
         }
       ],
@@ -120,10 +120,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 10.4556,
-          "beatIndex": 33,
-          "barIndex": 8,
+          "label": "BREAKDOWN",
+          "timeSeconds": 1.6135,
+          "beatIndex": 5,
+          "barIndex": 1,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -132,9 +132,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "CHORUS",
-          "timeSeconds": 29.403,
-          "beatIndex": 93,
-          "barIndex": 23,
+          "timeSeconds": 9.1924,
+          "beatIndex": 29,
+          "barIndex": 7,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -142,18 +142,7 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 39.5082,
-          "beatIndex": 125,
-          "barIndex": 31,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 5,
-          "type": "hotCue",
-          "label": "CHORUS",
+          "label": "BREAKDOWN",
           "timeSeconds": 72.3503,
           "beatIndex": 229,
           "barIndex": 57,
@@ -162,12 +151,23 @@
           "locked": false
         },
         {
+          "slot": 5,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 78.6661,
+          "beatIndex": 249,
+          "barIndex": 62,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
           "slot": 6,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 86.2451,
-          "beatIndex": 273,
-          "barIndex": 68,
+          "label": "BREAKDOWN",
+          "timeSeconds": 83.7187,
+          "beatIndex": 265,
+          "barIndex": 66,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -175,10 +175,10 @@
         {
           "slot": 7,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 120.3503,
-          "beatIndex": 381,
-          "barIndex": 95,
+          "label": "BREAKDOWN",
+          "timeSeconds": 135.5082,
+          "beatIndex": 429,
+          "barIndex": 107,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -187,9 +187,9 @@
           "slot": 8,
           "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 134.2451,
-          "beatIndex": 425,
-          "barIndex": 106,
+          "timeSeconds": 140.5609,
+          "beatIndex": 445,
+          "barIndex": 111,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -325,64 +325,64 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 30.8847,
+          "endSeconds": 3.8424,
           "startBeat": 0,
-          "endBeat": 73,
+          "endBeat": 9,
           "startBar": 0,
-          "endBar": 19
+          "endBar": 3
+        },
+        {
+          "label": "drop",
+          "startSeconds": 3.8424,
+          "endSeconds": 32.5748,
+          "startBeat": 9,
+          "endBeat": 77,
+          "startBar": 3,
+          "endBar": 20
         },
         {
           "label": "verse",
-          "startSeconds": 30.8847,
-          "endSeconds": 52.8565,
-          "startBeat": 73,
-          "endBeat": 125,
-          "startBar": 19,
-          "endBar": 32
+          "startSeconds": 32.5748,
+          "endSeconds": 44.4058,
+          "startBeat": 77,
+          "endBeat": 105,
+          "startBar": 20,
+          "endBar": 27
         },
         {
           "label": "chorus",
-          "startSeconds": 52.8565,
-          "endSeconds": 69.7579,
-          "startBeat": 125,
-          "endBeat": 165,
-          "startBar": 32,
-          "endBar": 42
-        },
-        {
-          "label": "drop",
-          "startSeconds": 69.7579,
-          "endSeconds": 106.941,
-          "startBeat": 165,
-          "endBeat": 253,
-          "startBar": 42,
-          "endBar": 64
+          "startSeconds": 44.4058,
+          "endSeconds": 112.0114,
+          "startBeat": 105,
+          "endBeat": 265,
+          "startBar": 27,
+          "endBar": 67
         },
         {
           "label": "breakdown",
-          "startSeconds": 106.941,
+          "startSeconds": 112.0114,
           "endSeconds": 125.5326,
-          "startBeat": 253,
+          "startBeat": 265,
           "endBeat": 297,
-          "startBar": 64,
+          "startBar": 67,
           "endBar": 75
         },
         {
-          "label": "build",
+          "label": "drop",
           "startSeconds": 125.5326,
-          "endSeconds": 161.0255,
+          "endSeconds": 132.2931,
           "startBeat": 297,
-          "endBeat": 381,
+          "endBeat": 313,
           "startBar": 75,
-          "endBar": 96
+          "endBar": 79
         },
         {
-          "label": "drop",
-          "startSeconds": 161.0255,
+          "label": "chorus",
+          "startSeconds": 132.2931,
           "endSeconds": 206.6593,
-          "startBeat": 381,
+          "startBeat": 313,
           "endBeat": 489,
-          "startBar": 96,
+          "startBar": 79,
           "endBar": 123
         },
         {
@@ -410,10 +410,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 30.8847,
-          "beatIndex": 73,
-          "barIndex": 18,
+          "label": "DROP",
+          "timeSeconds": 3.8424,
+          "beatIndex": 9,
+          "barIndex": 2,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -421,10 +421,10 @@
         {
           "slot": 3,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 52.8565,
-          "beatIndex": 125,
-          "barIndex": 31,
+          "label": "VERSE",
+          "timeSeconds": 32.5748,
+          "beatIndex": 77,
+          "barIndex": 19,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -432,10 +432,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "DROP",
-          "timeSeconds": 69.7579,
-          "beatIndex": 165,
-          "barIndex": 41,
+          "label": "CHORUS",
+          "timeSeconds": 44.4058,
+          "beatIndex": 105,
+          "barIndex": 26,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -444,9 +444,9 @@
           "slot": 5,
           "type": "hotCue",
           "label": "BREAKDOWN",
-          "timeSeconds": 106.941,
-          "beatIndex": 253,
-          "barIndex": 63,
+          "timeSeconds": 112.0114,
+          "beatIndex": 265,
+          "barIndex": 66,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -454,7 +454,7 @@
         {
           "slot": 6,
           "type": "hotCue",
-          "label": "BUILD",
+          "label": "DROP",
           "timeSeconds": 125.5326,
           "beatIndex": 297,
           "barIndex": 74,
@@ -465,10 +465,10 @@
         {
           "slot": 7,
           "type": "hotCue",
-          "label": "DROP",
-          "timeSeconds": 161.0255,
-          "beatIndex": 381,
-          "barIndex": 95,
+          "label": "CHORUS",
+          "timeSeconds": 132.2931,
+          "beatIndex": 313,
+          "barIndex": 78,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -612,37 +612,55 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 22.1008,
+          "endSeconds": 25.1976,
           "startBeat": 0,
-          "endBeat": 57,
+          "endBeat": 65,
           "startBar": 0,
-          "endBar": 15
+          "endBar": 17
         },
         {
           "label": "build",
-          "startSeconds": 22.1008,
-          "endSeconds": 37.5847,
-          "startBeat": 57,
-          "endBeat": 97,
-          "startBar": 15,
-          "endBar": 25
+          "startSeconds": 25.1976,
+          "endSeconds": 43.7782,
+          "startBeat": 65,
+          "endBeat": 113,
+          "startBar": 17,
+          "endBar": 29
         },
         {
           "label": "drop",
-          "startSeconds": 37.5847,
+          "startSeconds": 43.7782,
           "endSeconds": 53.0685,
-          "startBeat": 97,
+          "startBeat": 113,
           "endBeat": 137,
-          "startBar": 25,
+          "startBar": 29,
           "endBar": 35
         },
         {
-          "label": "outro",
+          "label": "chorus",
           "startSeconds": 53.0685,
-          "endSeconds": 94.896,
+          "endSeconds": 62.3589,
           "startBeat": 137,
-          "endBeat": 246,
+          "endBeat": 161,
           "startBar": 35,
+          "endBar": 41
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 62.3589,
+          "endSeconds": 88.6815,
+          "startBeat": 161,
+          "endBeat": 229,
+          "startBar": 41,
+          "endBar": 58
+        },
+        {
+          "label": "outro",
+          "startSeconds": 88.6815,
+          "endSeconds": 94.896,
+          "startBeat": 229,
+          "endBeat": 246,
+          "startBar": 58,
           "endBar": 63
         }
       ],
@@ -662,9 +680,9 @@
           "slot": 2,
           "type": "hotCue",
           "label": "BUILD",
-          "timeSeconds": 22.1008,
-          "beatIndex": 57,
-          "barIndex": 14,
+          "timeSeconds": 25.1976,
+          "beatIndex": 65,
+          "barIndex": 16,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -673,9 +691,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "DROP",
-          "timeSeconds": 37.5847,
-          "beatIndex": 97,
-          "barIndex": 24,
+          "timeSeconds": 43.7782,
+          "beatIndex": 113,
+          "barIndex": 28,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -683,10 +701,32 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "OUTRO",
+          "label": "CHORUS",
           "timeSeconds": 53.0685,
           "beatIndex": 137,
           "barIndex": 34,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 5,
+          "type": "hotCue",
+          "label": "BREAKDOWN",
+          "timeSeconds": 62.3589,
+          "beatIndex": 161,
+          "barIndex": 40,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 6,
+          "type": "hotCue",
+          "label": "OUTRO",
+          "timeSeconds": 88.6815,
+          "beatIndex": 229,
+          "barIndex": 57,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -775,55 +815,37 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 10.1447,
+          "endSeconds": 1.3026,
           "startBeat": 0,
-          "endBeat": 32,
+          "endBeat": 4,
           "startBar": 0,
-          "endBar": 9
+          "endBar": 2
         },
         {
           "label": "verse",
-          "startSeconds": 10.1447,
-          "endSeconds": 21.5132,
-          "startBeat": 32,
-          "endBeat": 68,
-          "startBar": 9,
-          "endBar": 18
+          "startSeconds": 1.3026,
+          "endSeconds": 24.0395,
+          "startBeat": 4,
+          "endBeat": 76,
+          "startBar": 2,
+          "endBar": 20
         },
         {
           "label": "chorus",
-          "startSeconds": 21.5132,
-          "endSeconds": 39.1974,
-          "startBeat": 68,
-          "endBeat": 124,
-          "startBar": 18,
-          "endBar": 32
-        },
-        {
-          "label": "verse",
-          "startSeconds": 39.1974,
-          "endSeconds": 49.3026,
-          "startBeat": 124,
-          "endBeat": 156,
-          "startBar": 32,
-          "endBar": 40
-        },
-        {
-          "label": "chorus",
-          "startSeconds": 49.3026,
-          "endSeconds": 74.5658,
-          "startBeat": 156,
-          "endBeat": 236,
-          "startBar": 40,
-          "endBar": 60
+          "startSeconds": 24.0395,
+          "endSeconds": 85.9342,
+          "startBeat": 76,
+          "endBeat": 272,
+          "startBar": 20,
+          "endBar": 69
         },
         {
           "label": "outro",
-          "startSeconds": 74.5658,
+          "startSeconds": 85.9342,
           "endSeconds": 89.736,
-          "startBeat": 236,
+          "startBeat": 272,
           "endBeat": 285,
-          "startBar": 60,
+          "startBar": 69,
           "endBar": 73
         }
       ],
@@ -843,9 +865,9 @@
           "slot": 2,
           "type": "hotCue",
           "label": "VERSE",
-          "timeSeconds": 10.1447,
-          "beatIndex": 32,
-          "barIndex": 8,
+          "timeSeconds": 1.3026,
+          "beatIndex": 4,
+          "barIndex": 1,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -854,9 +876,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "CHORUS",
-          "timeSeconds": 21.5132,
-          "beatIndex": 68,
-          "barIndex": 17,
+          "timeSeconds": 24.0395,
+          "beatIndex": 76,
+          "barIndex": 19,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -864,32 +886,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 39.1974,
-          "beatIndex": 124,
-          "barIndex": 31,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 5,
-          "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 49.3026,
-          "beatIndex": 156,
-          "barIndex": 39,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 6,
-          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 74.5658,
-          "beatIndex": 236,
-          "barIndex": 59,
+          "timeSeconds": 85.9342,
+          "beatIndex": 272,
+          "barIndex": 68,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -993,55 +993,37 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 17.025,
+          "endSeconds": 0.5679,
           "startBeat": 0,
-          "endBeat": 49,
+          "endBeat": 1,
           "startBar": 0,
-          "endBar": 13
+          "endBar": 1
         },
         {
-          "label": "verse",
-          "startSeconds": 17.025,
-          "endSeconds": 40.3393,
-          "startBeat": 49,
-          "endBeat": 117,
-          "startBar": 13,
-          "endBar": 30
-        },
-        {
-          "label": "chorus",
-          "startSeconds": 40.3393,
-          "endSeconds": 54.0536,
-          "startBeat": 117,
-          "endBeat": 157,
-          "startBar": 30,
-          "endBar": 40
-        },
-        {
-          "label": "verse",
-          "startSeconds": 54.0536,
-          "endSeconds": 74.625,
-          "startBeat": 157,
-          "endBeat": 217,
-          "startBar": 40,
-          "endBar": 55
+          "label": "drop",
+          "startSeconds": 0.5679,
+          "endSeconds": 38.9679,
+          "startBeat": 1,
+          "endBeat": 113,
+          "startBar": 1,
+          "endBar": 29
         },
         {
           "label": "chorus",
-          "startSeconds": 74.625,
-          "endSeconds": 86.9679,
-          "startBeat": 217,
-          "endBeat": 253,
-          "startBar": 55,
-          "endBar": 64
+          "startSeconds": 38.9679,
+          "endSeconds": 88.3393,
+          "startBeat": 113,
+          "endBeat": 257,
+          "startBar": 29,
+          "endBar": 65
         },
         {
           "label": "outro",
-          "startSeconds": 86.9679,
+          "startSeconds": 88.3393,
           "endSeconds": 91.584,
-          "startBeat": 253,
+          "startBeat": 257,
           "endBeat": 267,
-          "startBar": 64,
+          "startBar": 65,
           "endBar": 68
         }
       ],
@@ -1060,10 +1042,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 17.025,
-          "beatIndex": 49,
-          "barIndex": 12,
+          "label": "DROP",
+          "timeSeconds": 0.5679,
+          "beatIndex": 1,
+          "barIndex": 0,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1072,9 +1054,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "CHORUS",
-          "timeSeconds": 40.3393,
-          "beatIndex": 117,
-          "barIndex": 29,
+          "timeSeconds": 38.9679,
+          "beatIndex": 113,
+          "barIndex": 28,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1082,32 +1064,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 54.0536,
-          "beatIndex": 157,
-          "barIndex": 39,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 5,
-          "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 74.625,
-          "beatIndex": 217,
-          "barIndex": 54,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 6,
-          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 86.9679,
-          "beatIndex": 253,
-          "barIndex": 63,
+          "timeSeconds": 88.3393,
+          "beatIndex": 257,
+          "barIndex": 64,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1189,46 +1149,46 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 14.6827,
+          "endSeconds": 3.6058,
           "startBeat": 0,
-          "endBeat": 31,
+          "endBeat": 7,
           "startBar": 0,
-          "endBar": 8
+          "endBar": 2
         },
         {
-          "label": "build",
-          "startSeconds": 14.6827,
-          "endSeconds": 31.2981,
-          "startBeat": 31,
-          "endBeat": 67,
-          "startBar": 8,
-          "endBar": 17
+          "label": "breakdown",
+          "startSeconds": 3.6058,
+          "endSeconds": 29.4519,
+          "startBeat": 7,
+          "endBeat": 63,
+          "startBar": 2,
+          "endBar": 16
         },
         {
-          "label": "build",
-          "startSeconds": 31.2981,
-          "endSeconds": 58.9904,
-          "startBeat": 67,
-          "endBeat": 127,
-          "startBar": 17,
-          "endBar": 32
+          "label": "drop",
+          "startSeconds": 29.4519,
+          "endSeconds": 46.0673,
+          "startBeat": 63,
+          "endBeat": 99,
+          "startBar": 16,
+          "endBar": 25
         },
         {
-          "label": "verse",
-          "startSeconds": 58.9904,
-          "endSeconds": 90.375,
-          "startBeat": 127,
-          "endBeat": 195,
-          "startBar": 32,
-          "endBar": 49
+          "label": "chorus",
+          "startSeconds": 46.0673,
+          "endSeconds": 108.8365,
+          "startBeat": 99,
+          "endBeat": 235,
+          "startBar": 25,
+          "endBar": 59
         },
         {
           "label": "outro",
-          "startSeconds": 90.375,
+          "startSeconds": 108.8365,
           "endSeconds": 114.888,
-          "startBeat": 195,
+          "startBeat": 235,
           "endBeat": 249,
-          "startBar": 49,
+          "startBar": 59,
           "endBar": 63
         }
       ],
@@ -1247,10 +1207,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 14.6827,
-          "beatIndex": 31,
-          "barIndex": 7,
+          "label": "BREAKDOWN",
+          "timeSeconds": 3.6058,
+          "beatIndex": 7,
+          "barIndex": 1,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1258,10 +1218,10 @@
         {
           "slot": 3,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 31.2981,
-          "beatIndex": 67,
-          "barIndex": 16,
+          "label": "DROP",
+          "timeSeconds": 29.4519,
+          "beatIndex": 63,
+          "barIndex": 15,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1269,10 +1229,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 58.9904,
-          "beatIndex": 127,
-          "barIndex": 31,
+          "label": "CHORUS",
+          "timeSeconds": 46.0673,
+          "beatIndex": 99,
+          "barIndex": 24,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1281,9 +1241,9 @@
           "slot": 5,
           "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 90.375,
-          "beatIndex": 195,
-          "barIndex": 48,
+          "timeSeconds": 108.8365,
+          "beatIndex": 235,
+          "barIndex": 58,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1366,46 +1326,37 @@
         {
           "label": "build",
           "startSeconds": 11.3536,
-          "endSeconds": 35.0745,
+          "endSeconds": 25.307,
           "startBeat": 32,
-          "endBeat": 100,
+          "endBeat": 72,
           "startBar": 9,
-          "endBar": 26
+          "endBar": 19
+        },
+        {
+          "label": "drop",
+          "startSeconds": 25.307,
+          "endSeconds": 40.6559,
+          "startBeat": 72,
+          "endBeat": 116,
+          "startBar": 19,
+          "endBar": 30
         },
         {
           "label": "chorus",
-          "startSeconds": 35.0745,
-          "endSeconds": 56.0047,
-          "startBeat": 100,
-          "endBeat": 160,
-          "startBar": 26,
-          "endBar": 41
-        },
-        {
-          "label": "verse",
-          "startSeconds": 56.0047,
-          "endSeconds": 69.9582,
-          "startBeat": 160,
-          "endBeat": 200,
-          "startBar": 41,
-          "endBar": 51
-        },
-        {
-          "label": "chorus",
-          "startSeconds": 69.9582,
-          "endSeconds": 86.7024,
-          "startBeat": 200,
-          "endBeat": 248,
-          "startBar": 51,
-          "endBar": 63
+          "startSeconds": 40.6559,
+          "endSeconds": 116.0047,
+          "startBeat": 116,
+          "endBeat": 332,
+          "startBar": 30,
+          "endBar": 84
         },
         {
           "label": "outro",
-          "startSeconds": 86.7024,
+          "startSeconds": 116.0047,
           "endSeconds": 120.696,
-          "startBeat": 248,
+          "startBeat": 332,
           "endBeat": 346,
-          "startBar": 63,
+          "startBar": 84,
           "endBar": 88
         }
       ],
@@ -1435,10 +1386,10 @@
         {
           "slot": 3,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 35.0745,
-          "beatIndex": 100,
-          "barIndex": 25,
+          "label": "DROP",
+          "timeSeconds": 25.307,
+          "beatIndex": 72,
+          "barIndex": 18,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1446,10 +1397,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 56.0047,
-          "beatIndex": 160,
-          "barIndex": 40,
+          "label": "CHORUS",
+          "timeSeconds": 40.6559,
+          "beatIndex": 116,
+          "barIndex": 29,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1457,21 +1408,10 @@
         {
           "slot": 5,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 69.9582,
-          "beatIndex": 200,
-          "barIndex": 50,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 6,
-          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 86.7024,
-          "beatIndex": 248,
-          "barIndex": 62,
+          "timeSeconds": 116.0047,
+          "beatIndex": 332,
+          "barIndex": 83,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1583,64 +1523,100 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 13.2918,
+          "endSeconds": 4.4574,
           "startBeat": 0,
-          "endBeat": 36,
+          "endBeat": 12,
           "startBar": 0,
-          "endBar": 10
+          "endBar": 4
         },
         {
-          "label": "build",
-          "startSeconds": 13.2918,
-          "endSeconds": 25.0709,
-          "startBeat": 36,
-          "endBeat": 68,
-          "startBar": 10,
-          "endBar": 18
+          "label": "breakdown",
+          "startSeconds": 4.4574,
+          "endSeconds": 23.5985,
+          "startBeat": 12,
+          "endBeat": 64,
+          "startBar": 4,
+          "endBar": 17
         },
         {
           "label": "drop",
-          "startSeconds": 25.0709,
-          "endSeconds": 45.6844,
-          "startBeat": 68,
-          "endBeat": 124,
-          "startBar": 18,
-          "endBar": 32
+          "startSeconds": 23.5985,
+          "endSeconds": 53.0464,
+          "startBeat": 64,
+          "endBeat": 144,
+          "startBar": 17,
+          "endBar": 37
         },
         {
-          "label": "verse",
-          "startSeconds": 45.6844,
-          "endSeconds": 66.2979,
-          "startBeat": 124,
-          "endBeat": 180,
-          "startBar": 32,
-          "endBar": 46
+          "label": "breakdown",
+          "startSeconds": 53.0464,
+          "endSeconds": 61.8808,
+          "startBeat": 144,
+          "endBeat": 168,
+          "startBar": 37,
+          "endBar": 43
+        },
+        {
+          "label": "drop",
+          "startSeconds": 61.8808,
+          "endSeconds": 73.6599,
+          "startBeat": 168,
+          "endBeat": 200,
+          "startBar": 43,
+          "endBar": 51
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 73.6599,
+          "endSeconds": 86.9114,
+          "startBeat": 200,
+          "endBeat": 236,
+          "startBar": 51,
+          "endBar": 60
+        },
+        {
+          "label": "drop",
+          "startSeconds": 86.9114,
+          "endSeconds": 95.7458,
+          "startBeat": 236,
+          "endBeat": 260,
+          "startBar": 60,
+          "endBar": 66
+        },
+        {
+          "label": "build",
+          "startSeconds": 95.7458,
+          "endSeconds": 107.5249,
+          "startBeat": 260,
+          "endBeat": 292,
+          "startBar": 66,
+          "endBar": 74
+        },
+        {
+          "label": "drop",
+          "startSeconds": 107.5249,
+          "endSeconds": 116.3593,
+          "startBeat": 292,
+          "endBeat": 316,
+          "startBar": 74,
+          "endBar": 80
         },
         {
           "label": "chorus",
-          "startSeconds": 66.2979,
-          "endSeconds": 79.5495,
-          "startBeat": 180,
-          "endBeat": 216,
-          "startBar": 46,
-          "endBar": 55
-        },
-        {
-          "label": "verse",
-          "startSeconds": 79.5495,
-          "endSeconds": 92.801,
-          "startBeat": 216,
-          "endBeat": 252,
-          "startBar": 55,
-          "endBar": 64
+          "startSeconds": 116.3593,
+          "endSeconds": 122.2488,
+          "startBeat": 316,
+          "endBeat": 332,
+          "startBar": 80,
+          "endBar": 84
         },
         {
           "label": "outro",
-          "startSeconds": 92.801,
+          "startSeconds": 122.2488,
           "endSeconds": 124.8,
-          "startBeat": 252,
+          "startBeat": 332,
           "endBeat": 339,
-          "startBar": 64,
+          "startBar": 84,
           "endBar": 86
         }
       ],
@@ -1659,10 +1635,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 13.2918,
-          "beatIndex": 36,
-          "barIndex": 9,
+          "label": "BREAKDOWN",
+          "timeSeconds": 4.4574,
+          "beatIndex": 12,
+          "barIndex": 3,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1671,9 +1647,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "DROP",
-          "timeSeconds": 25.0709,
-          "beatIndex": 68,
-          "barIndex": 17,
+          "timeSeconds": 23.5985,
+          "beatIndex": 64,
+          "barIndex": 16,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1681,10 +1657,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 45.6844,
-          "beatIndex": 124,
-          "barIndex": 31,
+          "label": "BREAKDOWN",
+          "timeSeconds": 53.0464,
+          "beatIndex": 144,
+          "barIndex": 36,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1692,10 +1668,10 @@
         {
           "slot": 5,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 66.2979,
-          "beatIndex": 180,
-          "barIndex": 45,
+          "label": "DROP",
+          "timeSeconds": 61.8808,
+          "beatIndex": 168,
+          "barIndex": 42,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1703,10 +1679,10 @@
         {
           "slot": 6,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 79.5495,
-          "beatIndex": 216,
-          "barIndex": 54,
+          "label": "BUILD",
+          "timeSeconds": 95.7458,
+          "beatIndex": 260,
+          "barIndex": 65,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1714,10 +1690,21 @@
         {
           "slot": 7,
           "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 116.3593,
+          "beatIndex": 316,
+          "barIndex": 79,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 8,
+          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 92.801,
-          "beatIndex": 252,
-          "barIndex": 63,
+          "timeSeconds": 122.2488,
+          "beatIndex": 332,
+          "barIndex": 83,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1834,37 +1821,46 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 20.7328,
+          "endSeconds": 23.4914,
           "startBeat": 0,
-          "endBeat": 30,
+          "endBeat": 34,
           "startBar": 0,
-          "endBar": 8
-        },
-        {
-          "label": "drop",
-          "startSeconds": 20.7328,
-          "endSeconds": 56.5948,
-          "startBeat": 30,
-          "endBeat": 82,
-          "startBar": 8,
-          "endBar": 21
+          "endBar": 9
         },
         {
           "label": "chorus",
-          "startSeconds": 56.5948,
-          "endSeconds": 81.4224,
-          "startBeat": 82,
-          "endBeat": 118,
-          "startBar": 21,
-          "endBar": 30
+          "startSeconds": 23.4914,
+          "endSeconds": 59.3534,
+          "startBeat": 34,
+          "endBeat": 86,
+          "startBar": 9,
+          "endBar": 22
+        },
+        {
+          "label": "build",
+          "startSeconds": 59.3534,
+          "endSeconds": 73.1466,
+          "startBeat": 86,
+          "endBeat": 106,
+          "startBar": 22,
+          "endBar": 27
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 73.1466,
+          "endSeconds": 100.7328,
+          "startBeat": 106,
+          "endBeat": 146,
+          "startBar": 27,
+          "endBar": 37
         },
         {
           "label": "outro",
-          "startSeconds": 81.4224,
+          "startSeconds": 100.7328,
           "endSeconds": 117.792,
-          "startBeat": 118,
+          "startBeat": 146,
           "endBeat": 171,
-          "startBar": 30,
+          "startBar": 37,
           "endBar": 44
         }
       ],
@@ -1883,10 +1879,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "DROP",
-          "timeSeconds": 20.7328,
-          "beatIndex": 30,
-          "barIndex": 7,
+          "label": "CHORUS",
+          "timeSeconds": 23.4914,
+          "beatIndex": 34,
+          "barIndex": 8,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1894,10 +1890,10 @@
         {
           "slot": 3,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 56.5948,
-          "beatIndex": 82,
-          "barIndex": 20,
+          "label": "BUILD",
+          "timeSeconds": 59.3534,
+          "beatIndex": 86,
+          "barIndex": 21,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1905,10 +1901,21 @@
         {
           "slot": 4,
           "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 73.1466,
+          "beatIndex": 106,
+          "barIndex": 26,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 5,
+          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 81.4224,
-          "beatIndex": 118,
-          "barIndex": 29,
+          "timeSeconds": 100.7328,
+          "beatIndex": 146,
+          "barIndex": 36,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -1978,28 +1985,28 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 66.0192,
+          "endSeconds": 41.4737,
           "startBeat": 0,
-          "endBeat": 96,
+          "endBeat": 60,
           "startBar": 0,
-          "endBar": 25
+          "endBar": 16
         },
         {
-          "label": "drop",
-          "startSeconds": 66.0192,
-          "endSeconds": 87.8374,
-          "startBeat": 96,
-          "endBeat": 128,
-          "startBar": 25,
-          "endBar": 33
+          "label": "chorus",
+          "startSeconds": 41.4737,
+          "endSeconds": 109.6555,
+          "startBeat": 60,
+          "endBeat": 160,
+          "startBar": 16,
+          "endBar": 41
         },
         {
           "label": "outro",
-          "startSeconds": 87.8374,
+          "startSeconds": 109.6555,
           "endSeconds": 115.608,
-          "startBeat": 128,
+          "startBeat": 160,
           "endBeat": 169,
-          "startBar": 33,
+          "startBar": 41,
           "endBar": 44
         }
       ],
@@ -2018,10 +2025,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "DROP",
-          "timeSeconds": 66.0192,
-          "beatIndex": 96,
-          "barIndex": 24,
+          "label": "CHORUS",
+          "timeSeconds": 41.4737,
+          "beatIndex": 60,
+          "barIndex": 15,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2030,9 +2037,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 87.8374,
-          "beatIndex": 128,
-          "barIndex": 32,
+          "timeSeconds": 109.6555,
+          "beatIndex": 160,
+          "barIndex": 40,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2107,37 +2114,55 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 18.8453,
+          "endSeconds": 2.5742,
           "startBeat": 0,
-          "endBeat": 37,
+          "endBeat": 5,
           "startBar": 0,
-          "endBar": 10
+          "endBar": 2
         },
         {
           "label": "verse",
-          "startSeconds": 18.8453,
-          "endSeconds": 49.3538,
-          "startBeat": 37,
-          "endBeat": 97,
-          "startBar": 10,
-          "endBar": 25
+          "startSeconds": 2.5742,
+          "endSeconds": 22.9131,
+          "startBeat": 5,
+          "endBeat": 45,
+          "startBar": 2,
+          "endBar": 12
         },
         {
           "label": "chorus",
-          "startSeconds": 49.3538,
-          "endSeconds": 79.8623,
-          "startBeat": 97,
-          "endBeat": 157,
-          "startBar": 25,
-          "endBar": 40
+          "startSeconds": 22.9131,
+          "endSeconds": 31.0487,
+          "startBeat": 45,
+          "endBeat": 61,
+          "startBar": 12,
+          "endBar": 16
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 31.0487,
+          "endSeconds": 63.5911,
+          "startBeat": 61,
+          "endBeat": 125,
+          "startBar": 16,
+          "endBar": 32
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 63.5911,
+          "endSeconds": 96.1335,
+          "startBeat": 125,
+          "endBeat": 189,
+          "startBar": 32,
+          "endBar": 48
         },
         {
           "label": "outro",
-          "startSeconds": 79.8623,
+          "startSeconds": 96.1335,
           "endSeconds": 112.416,
-          "startBeat": 157,
+          "startBeat": 189,
           "endBeat": 222,
-          "startBar": 40,
+          "startBar": 48,
           "endBar": 57
         }
       ],
@@ -2157,9 +2182,9 @@
           "slot": 2,
           "type": "hotCue",
           "label": "VERSE",
-          "timeSeconds": 18.8453,
-          "beatIndex": 37,
-          "barIndex": 9,
+          "timeSeconds": 2.5742,
+          "beatIndex": 5,
+          "barIndex": 1,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2168,9 +2193,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "CHORUS",
-          "timeSeconds": 49.3538,
-          "beatIndex": 97,
-          "barIndex": 24,
+          "timeSeconds": 22.9131,
+          "beatIndex": 45,
+          "barIndex": 11,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2178,10 +2203,32 @@
         {
           "slot": 4,
           "type": "hotCue",
+          "label": "BREAKDOWN",
+          "timeSeconds": 31.0487,
+          "beatIndex": 61,
+          "barIndex": 15,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 5,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 63.5911,
+          "beatIndex": 125,
+          "barIndex": 31,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 6,
+          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 79.8623,
-          "beatIndex": 157,
-          "barIndex": 39,
+          "timeSeconds": 96.1335,
+          "beatIndex": 189,
+          "barIndex": 47,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2271,64 +2318,64 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 17.676,
+          "endSeconds": 20.0061,
           "startBeat": 0,
-          "endBeat": 30,
+          "endBeat": 34,
           "startBar": 0,
-          "endBar": 8
+          "endBar": 9
         },
         {
-          "label": "build",
-          "startSeconds": 17.676,
-          "endSeconds": 36.3167,
-          "startBeat": 30,
-          "endBeat": 62,
-          "startBar": 8,
-          "endBar": 16
-        },
-        {
-          "label": "drop",
-          "startSeconds": 36.3167,
-          "endSeconds": 73.5983,
-          "startBeat": 62,
-          "endBeat": 126,
-          "startBar": 16,
-          "endBar": 32
-        },
-        {
-          "label": "verse",
-          "startSeconds": 73.5983,
-          "endSeconds": 94.5692,
-          "startBeat": 126,
-          "endBeat": 162,
-          "startBar": 32,
-          "endBar": 41
+          "label": "breakdown",
+          "startSeconds": 20.0061,
+          "endSeconds": 38.6468,
+          "startBeat": 34,
+          "endBeat": 66,
+          "startBar": 9,
+          "endBar": 17
         },
         {
           "label": "chorus",
-          "startSeconds": 94.5692,
-          "endSeconds": 113.21,
-          "startBeat": 162,
-          "endBeat": 194,
-          "startBar": 41,
-          "endBar": 49
+          "startSeconds": 38.6468,
+          "endSeconds": 78.2585,
+          "startBeat": 66,
+          "endBeat": 134,
+          "startBar": 17,
+          "endBar": 34
         },
         {
-          "label": "drop",
-          "startSeconds": 113.21,
-          "endSeconds": 148.1614,
-          "startBeat": 194,
-          "endBeat": 254,
-          "startBar": 49,
-          "endBar": 64
+          "label": "breakdown",
+          "startSeconds": 78.2585,
+          "endSeconds": 89.909,
+          "startBeat": 134,
+          "endBeat": 154,
+          "startBar": 34,
+          "endBar": 39
+        },
+        {
+          "label": "verse",
+          "startSeconds": 89.909,
+          "endSeconds": 110.8799,
+          "startBeat": 154,
+          "endBeat": 190,
+          "startBar": 39,
+          "endBar": 48
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 110.8799,
+          "endSeconds": 150.4915,
+          "startBeat": 190,
+          "endBeat": 258,
+          "startBar": 48,
+          "endBar": 65
         },
         {
           "label": "outro",
-          "startSeconds": 148.1614,
+          "startSeconds": 150.4915,
           "endSeconds": 156.24,
-          "startBeat": 254,
+          "startBeat": 258,
           "endBeat": 268,
-          "startBar": 64,
+          "startBar": 65,
           "endBar": 68
         }
       ],
@@ -2347,10 +2394,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 17.676,
-          "beatIndex": 30,
-          "barIndex": 7,
+          "label": "BREAKDOWN",
+          "timeSeconds": 20.0061,
+          "beatIndex": 34,
+          "barIndex": 8,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2358,10 +2405,10 @@
         {
           "slot": 3,
           "type": "hotCue",
-          "label": "DROP",
-          "timeSeconds": 36.3167,
-          "beatIndex": 62,
-          "barIndex": 15,
+          "label": "CHORUS",
+          "timeSeconds": 38.6468,
+          "beatIndex": 66,
+          "barIndex": 16,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2369,10 +2416,10 @@
         {
           "slot": 4,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 73.5983,
-          "beatIndex": 126,
-          "barIndex": 31,
+          "label": "BREAKDOWN",
+          "timeSeconds": 78.2585,
+          "beatIndex": 134,
+          "barIndex": 33,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2380,10 +2427,10 @@
         {
           "slot": 5,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 94.5692,
-          "beatIndex": 162,
-          "barIndex": 40,
+          "label": "VERSE",
+          "timeSeconds": 89.909,
+          "beatIndex": 154,
+          "barIndex": 38,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2391,10 +2438,10 @@
         {
           "slot": 6,
           "type": "hotCue",
-          "label": "DROP",
-          "timeSeconds": 113.21,
-          "beatIndex": 194,
-          "barIndex": 48,
+          "label": "CHORUS",
+          "timeSeconds": 110.8799,
+          "beatIndex": 190,
+          "barIndex": 47,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2403,9 +2450,9 @@
           "slot": 7,
           "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 148.1614,
-          "beatIndex": 254,
-          "barIndex": 63,
+          "timeSeconds": 150.4915,
+          "beatIndex": 258,
+          "barIndex": 64,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2511,64 +2558,28 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 17.8846,
+          "endSeconds": 1.8846,
           "startBeat": 0,
-          "endBeat": 58,
+          "endBeat": 6,
           "startBar": 0,
-          "endBar": 15
-        },
-        {
-          "label": "verse",
-          "startSeconds": 17.8846,
-          "endSeconds": 28.9615,
-          "startBeat": 58,
-          "endBeat": 94,
-          "startBar": 15,
-          "endBar": 24
+          "endBar": 2
         },
         {
           "label": "chorus",
-          "startSeconds": 28.9615,
-          "endSeconds": 38.8077,
-          "startBeat": 94,
-          "endBeat": 126,
-          "startBar": 24,
-          "endBar": 32
-        },
-        {
-          "label": "verse",
-          "startSeconds": 38.8077,
-          "endSeconds": 49.8846,
-          "startBeat": 126,
-          "endBeat": 162,
-          "startBar": 32,
-          "endBar": 41
-        },
-        {
-          "label": "chorus",
-          "startSeconds": 49.8846,
-          "endSeconds": 67.1154,
-          "startBeat": 162,
-          "endBeat": 218,
-          "startBar": 41,
-          "endBar": 55
-        },
-        {
-          "label": "verse",
-          "startSeconds": 67.1154,
-          "endSeconds": 78.1923,
-          "startBeat": 218,
-          "endBeat": 254,
-          "startBar": 55,
-          "endBar": 64
+          "startSeconds": 1.8846,
+          "endSeconds": 91.7308,
+          "startBeat": 6,
+          "endBeat": 298,
+          "startBar": 2,
+          "endBar": 75
         },
         {
           "label": "outro",
-          "startSeconds": 78.1923,
+          "startSeconds": 91.7308,
           "endSeconds": 95.928,
-          "startBeat": 254,
+          "startBeat": 298,
           "endBeat": 312,
-          "startBar": 64,
+          "startBar": 75,
           "endBar": 79
         }
       ],
@@ -2587,10 +2598,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 17.8846,
-          "beatIndex": 58,
-          "barIndex": 14,
+          "label": "CHORUS",
+          "timeSeconds": 1.8846,
+          "beatIndex": 6,
+          "barIndex": 1,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2598,54 +2609,10 @@
         {
           "slot": 3,
           "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 28.9615,
-          "beatIndex": 94,
-          "barIndex": 23,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 4,
-          "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 38.8077,
-          "beatIndex": 126,
-          "barIndex": 31,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 5,
-          "type": "hotCue",
-          "label": "CHORUS",
-          "timeSeconds": 49.8846,
-          "beatIndex": 162,
-          "barIndex": 40,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 6,
-          "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 67.1154,
-          "beatIndex": 218,
-          "barIndex": 54,
-          "beatInBar": 1,
-          "source": "auto",
-          "locked": false
-        },
-        {
-          "slot": 7,
-          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 78.1923,
-          "beatIndex": 254,
-          "barIndex": 63,
+          "timeSeconds": 91.7308,
+          "beatIndex": 298,
+          "barIndex": 74,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2752,37 +2719,73 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 20.2423,
+          "endSeconds": 10.4464,
           "startBeat": 0,
-          "endBeat": 33,
+          "endBeat": 17,
           "startBar": 0,
+          "endBar": 5
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 10.4464,
+          "endSeconds": 20.2423,
+          "startBeat": 17,
+          "endBeat": 33,
+          "startBar": 5,
           "endBar": 9
         },
         {
-          "label": "build",
+          "label": "verse",
           "startSeconds": 20.2423,
-          "endSeconds": 49.6301,
+          "endSeconds": 42.2832,
           "startBeat": 33,
-          "endBeat": 81,
+          "endBeat": 69,
           "startBar": 9,
-          "endBar": 21
+          "endBar": 18
         },
         {
           "label": "chorus",
-          "startSeconds": 49.6301,
-          "endSeconds": 76.5689,
-          "startBeat": 81,
-          "endBeat": 125,
-          "startBar": 21,
-          "endBar": 32
+          "startSeconds": 42.2832,
+          "endSeconds": 52.0791,
+          "startBeat": 69,
+          "endBeat": 85,
+          "startBar": 18,
+          "endBar": 22
+        },
+        {
+          "label": "verse",
+          "startSeconds": 52.0791,
+          "endSeconds": 61.875,
+          "startBeat": 85,
+          "endBeat": 101,
+          "startBar": 22,
+          "endBar": 26
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 61.875,
+          "endSeconds": 86.3648,
+          "startBeat": 101,
+          "endBeat": 141,
+          "startBar": 26,
+          "endBar": 36
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 86.3648,
+          "endSeconds": 98.6097,
+          "startBeat": 141,
+          "endBeat": 161,
+          "startBar": 36,
+          "endBar": 41
         },
         {
           "label": "outro",
-          "startSeconds": 76.5689,
+          "startSeconds": 98.6097,
           "endSeconds": 111.48,
-          "startBeat": 125,
+          "startBeat": 161,
           "endBeat": 183,
-          "startBar": 32,
+          "startBar": 41,
           "endBar": 47
         }
       ],
@@ -2801,7 +2804,18 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "BUILD",
+          "label": "BREAKDOWN",
+          "timeSeconds": 10.4464,
+          "beatIndex": 17,
+          "barIndex": 4,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 3,
+          "type": "hotCue",
+          "label": "VERSE",
           "timeSeconds": 20.2423,
           "beatIndex": 33,
           "barIndex": 8,
@@ -2810,23 +2824,56 @@
           "locked": false
         },
         {
-          "slot": 3,
+          "slot": 4,
           "type": "hotCue",
           "label": "CHORUS",
-          "timeSeconds": 49.6301,
-          "beatIndex": 81,
-          "barIndex": 20,
+          "timeSeconds": 42.2832,
+          "beatIndex": 69,
+          "barIndex": 17,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
         },
         {
-          "slot": 4,
+          "slot": 5,
+          "type": "hotCue",
+          "label": "VERSE",
+          "timeSeconds": 52.0791,
+          "beatIndex": 85,
+          "barIndex": 21,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 6,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 61.875,
+          "beatIndex": 101,
+          "barIndex": 25,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 7,
+          "type": "hotCue",
+          "label": "BREAKDOWN",
+          "timeSeconds": 86.3648,
+          "beatIndex": 141,
+          "barIndex": 35,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 8,
           "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 76.5689,
-          "beatIndex": 125,
-          "barIndex": 31,
+          "timeSeconds": 98.6097,
+          "beatIndex": 161,
+          "barIndex": 40,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2906,37 +2953,37 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 17.5391,
+          "endSeconds": 3.5391,
           "startBeat": 0,
-          "endBeat": 35,
+          "endBeat": 7,
           "startBar": 0,
-          "endBar": 9
+          "endBar": 2
         },
         {
-          "label": "verse",
-          "startSeconds": 17.5391,
-          "endSeconds": 39.5391,
-          "startBeat": 35,
-          "endBeat": 79,
-          "startBar": 9,
-          "endBar": 20
+          "label": "drop",
+          "startSeconds": 3.5391,
+          "endSeconds": 47.5391,
+          "startBeat": 7,
+          "endBeat": 95,
+          "startBar": 2,
+          "endBar": 24
         },
         {
           "label": "chorus",
-          "startSeconds": 39.5391,
-          "endSeconds": 59.5391,
-          "startBeat": 79,
-          "endBeat": 119,
-          "startBar": 20,
-          "endBar": 30
+          "startSeconds": 47.5391,
+          "endSeconds": 97.5391,
+          "startBeat": 95,
+          "endBeat": 195,
+          "startBar": 24,
+          "endBar": 49
         },
         {
           "label": "outro",
-          "startSeconds": 59.5391,
+          "startSeconds": 97.5391,
           "endSeconds": 116.544,
-          "startBeat": 119,
+          "startBeat": 195,
           "endBeat": 234,
-          "startBar": 30,
+          "startBar": 49,
           "endBar": 59
         }
       ],
@@ -2955,10 +3002,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "VERSE",
-          "timeSeconds": 17.5391,
-          "beatIndex": 35,
-          "barIndex": 8,
+          "label": "DROP",
+          "timeSeconds": 3.5391,
+          "beatIndex": 7,
+          "barIndex": 1,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2967,9 +3014,9 @@
           "slot": 3,
           "type": "hotCue",
           "label": "CHORUS",
-          "timeSeconds": 39.5391,
-          "beatIndex": 79,
-          "barIndex": 19,
+          "timeSeconds": 47.5391,
+          "beatIndex": 95,
+          "barIndex": 23,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -2978,9 +3025,9 @@
           "slot": 4,
           "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 59.5391,
-          "beatIndex": 119,
-          "barIndex": 29,
+          "timeSeconds": 97.5391,
+          "beatIndex": 195,
+          "barIndex": 48,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -3070,28 +3117,37 @@
         {
           "label": "intro",
           "startSeconds": 0.0,
-          "endSeconds": 22.5335,
+          "endSeconds": 7.1049,
           "startBeat": 0,
-          "endBeat": 52,
+          "endBeat": 16,
           "startBar": 0,
-          "endBar": 14
+          "endBar": 5
         },
         {
-          "label": "build",
-          "startSeconds": 22.5335,
-          "endSeconds": 44.8192,
-          "startBeat": 52,
-          "endBeat": 104,
-          "startBar": 14,
-          "endBar": 27
+          "label": "drop",
+          "startSeconds": 7.1049,
+          "endSeconds": 48.2478,
+          "startBeat": 16,
+          "endBeat": 112,
+          "startBar": 5,
+          "endBar": 29
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 48.2478,
+          "endSeconds": 79.1049,
+          "startBeat": 112,
+          "endBeat": 184,
+          "startBar": 29,
+          "endBar": 47
         },
         {
           "label": "outro",
-          "startSeconds": 44.8192,
+          "startSeconds": 79.1049,
           "endSeconds": 80.832,
-          "startBeat": 104,
+          "startBeat": 184,
           "endBeat": 189,
-          "startBar": 27,
+          "startBar": 47,
           "endBar": 49
         }
       ],
@@ -3110,10 +3166,10 @@
         {
           "slot": 2,
           "type": "hotCue",
-          "label": "BUILD",
-          "timeSeconds": 22.5335,
-          "beatIndex": 52,
-          "barIndex": 13,
+          "label": "DROP",
+          "timeSeconds": 7.1049,
+          "beatIndex": 16,
+          "barIndex": 4,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -3121,10 +3177,21 @@
         {
           "slot": 3,
           "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 48.2478,
+          "beatIndex": 112,
+          "barIndex": 28,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 4,
+          "type": "hotCue",
           "label": "OUTRO",
-          "timeSeconds": 44.8192,
-          "beatIndex": 104,
-          "barIndex": 26,
+          "timeSeconds": 79.1049,
+          "beatIndex": 184,
+          "barIndex": 46,
           "beatInBar": 1,
           "source": "auto",
           "locked": false
@@ -3146,6 +3213,585 @@
         "V7/VI",
         "bIImaj7",
         "VImaj7"
+      ],
+      "capabilities": {
+        "features": "complete",
+        "beatGrid": "partial",
+        "harmony": "partial",
+        "structure": "partial"
+      },
+      "licenseStatus": "verified"
+    },
+    {
+      "trackId": "n1-25",
+      "artist": "staroprog",
+      "file": "n1-25.wav",
+      "genre": "edm",
+      "license": "Original work by the track author (staroprog); usage terms to be confirmed",
+      "mood": [
+        "original"
+      ],
+      "sourceUrl": "local:n1-25",
+      "title": "n1-25",
+      "analysisFile": "data/analysis/n1-25.json",
+      "bpm": 109.957,
+      "key": "F#",
+      "scale": "minor",
+      "camelot": "11A",
+      "energy": 0.8256,
+      "beatCount": 265,
+      "sectionSummary": [
+        {
+          "label": "intro",
+          "startSeconds": 0.0,
+          "endSeconds": 8.7423,
+          "startBeat": 0,
+          "endBeat": 16,
+          "startBar": 0,
+          "endBar": 5
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 8.7423,
+          "endSeconds": 17.3453,
+          "startBeat": 16,
+          "endBeat": 32,
+          "startBar": 5,
+          "endBar": 9
+        },
+        {
+          "label": "verse",
+          "startSeconds": 17.3453,
+          "endSeconds": 56.2039,
+          "startBeat": 32,
+          "endBeat": 104,
+          "startBar": 9,
+          "endBar": 27
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 56.2039,
+          "endSeconds": 142.9091,
+          "startBeat": 104,
+          "endBeat": 265,
+          "startBar": 27,
+          "endBar": 68
+        }
+      ],
+      "performancePads": [
+        {
+          "slot": 1,
+          "type": "hotCue",
+          "label": "FIRST BEAT",
+          "timeSeconds": 0.0116,
+          "beatIndex": 0,
+          "barIndex": 0,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 2,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 8.7423,
+          "beatIndex": 16,
+          "barIndex": 4,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 3,
+          "type": "hotCue",
+          "label": "VERSE",
+          "timeSeconds": 17.3453,
+          "beatIndex": 32,
+          "barIndex": 8,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 4,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 56.2039,
+          "beatIndex": 104,
+          "barIndex": 26,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        }
+      ],
+      "degreeFingerprint": [
+        "VImaj7",
+        "iv",
+        "VImaj7",
+        "iv",
+        "VImaj7",
+        "v7",
+        "i7",
+        "IIImaj7",
+        "Vmaj7",
+        "IIImaj7",
+        "N",
+        "i7",
+        "N",
+        "VImaj7",
+        "i7",
+        "VImaj7",
+        "N",
+        "VImaj7",
+        "N",
+        "VImaj7",
+        "N",
+        "IImaj7",
+        "N",
+        "IImaj7",
+        "N",
+        "IIImaj7",
+        "N",
+        "IIImaj7",
+        "N",
+        "IIImaj7",
+        "VImaj7",
+        "N",
+        "IIImaj7",
+        "N",
+        "Imaj7",
+        "N",
+        "i7",
+        "N",
+        "Imaj7",
+        "VImaj7",
+        "N",
+        "IVmaj7",
+        "N"
+      ],
+      "capabilities": {
+        "features": "complete",
+        "beatGrid": "partial",
+        "harmony": "partial",
+        "structure": "partial"
+      },
+      "licenseStatus": "verified"
+    },
+    {
+      "trackId": "n1-5_ryme",
+      "artist": "staroprog",
+      "file": "n1-5_Ryme.wav",
+      "genre": "edm",
+      "license": "Original work by the track author (staroprog); usage terms to be confirmed",
+      "mood": [
+        "original"
+      ],
+      "sourceUrl": "local:n1-5_ryme",
+      "title": "n1-5 Ryme",
+      "analysisFile": "data/analysis/n1-5_ryme.json",
+      "bpm": 100.446,
+      "key": "E",
+      "scale": "major",
+      "camelot": "12B",
+      "energy": 0.8168,
+      "beatCount": 186,
+      "sectionSummary": [
+        {
+          "label": "intro",
+          "startSeconds": 0.0,
+          "endSeconds": 1.8133,
+          "startBeat": 0,
+          "endBeat": 2,
+          "startBar": 0,
+          "endBar": 1
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 1.8133,
+          "endSeconds": 49.2267,
+          "startBeat": 2,
+          "endBeat": 82,
+          "startBar": 1,
+          "endBar": 21
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 49.2267,
+          "endSeconds": 70.9653,
+          "startBeat": 82,
+          "endBeat": 118,
+          "startBar": 21,
+          "endBar": 30
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 70.9653,
+          "endSeconds": 109.1947,
+          "startBeat": 118,
+          "endBeat": 182,
+          "startBar": 30,
+          "endBar": 46
+        },
+        {
+          "label": "outro",
+          "startSeconds": 109.1947,
+          "endSeconds": 111.5999,
+          "startBeat": 182,
+          "endBeat": 186,
+          "startBar": 46,
+          "endBar": 47
+        }
+      ],
+      "performancePads": [
+        {
+          "slot": 1,
+          "type": "hotCue",
+          "label": "FIRST BEAT",
+          "timeSeconds": 1.8133,
+          "beatIndex": 2,
+          "barIndex": 0,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 2,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 1.8133,
+          "beatIndex": 2,
+          "barIndex": 0,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 3,
+          "type": "hotCue",
+          "label": "BREAKDOWN",
+          "timeSeconds": 49.2267,
+          "beatIndex": 82,
+          "barIndex": 20,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 4,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 70.9653,
+          "beatIndex": 118,
+          "barIndex": 29,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 5,
+          "type": "hotCue",
+          "label": "OUTRO",
+          "timeSeconds": 109.1947,
+          "beatIndex": 182,
+          "barIndex": 45,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        }
+      ],
+      "degreeFingerprint": [
+        "bVImaj7",
+        "vi7",
+        "N",
+        "V7/ii",
+        "N",
+        "IVmaj7",
+        "Imaj7",
+        "V7/ii",
+        "N",
+        "vi7",
+        "iii7",
+        "vi7",
+        "N",
+        "Imaj7",
+        "vi7",
+        "Imaj7",
+        "I",
+        "IVmaj7",
+        "Imaj7",
+        "I",
+        "iii7",
+        "IImaj7",
+        "N",
+        "V7/IV",
+        "ii7",
+        "vi7",
+        "ii7",
+        "Imaj7",
+        "ii7",
+        "Imaj7",
+        "ii7",
+        "V7/IV",
+        "N",
+        "ii7",
+        "IVmaj7",
+        "ii7"
+      ],
+      "capabilities": {
+        "features": "complete",
+        "beatGrid": "partial",
+        "harmony": "partial",
+        "structure": "partial"
+      },
+      "licenseStatus": "verified"
+    },
+    {
+      "trackId": "re_n1-38_final",
+      "artist": "staroprog",
+      "file": "Re_n1-38_final.wav",
+      "genre": "edm",
+      "license": "Original work by the track author (staroprog); usage terms to be confirmed",
+      "mood": [
+        "original"
+      ],
+      "sourceUrl": "local:re_n1-38_final",
+      "title": "Re_n1-38",
+      "analysisFile": "data/analysis/re_n1-38_final.json",
+      "bpm": 192.0,
+      "key": "G",
+      "scale": "minor",
+      "camelot": "6A",
+      "energy": 0.7743,
+      "beatCount": 477,
+      "sectionSummary": [
+        {
+          "label": "intro",
+          "startSeconds": 0.0,
+          "endSeconds": 10.0146,
+          "startBeat": 0,
+          "endBeat": 32,
+          "startBar": 0,
+          "endBar": 9
+        },
+        {
+          "label": "verse",
+          "startSeconds": 10.0146,
+          "endSeconds": 32.5146,
+          "startBeat": 32,
+          "endBeat": 104,
+          "startBar": 9,
+          "endBar": 27
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 32.5146,
+          "endSeconds": 72.5146,
+          "startBeat": 104,
+          "endBeat": 232,
+          "startBar": 27,
+          "endBar": 59
+        },
+        {
+          "label": "breakdown",
+          "startSeconds": 72.5146,
+          "endSeconds": 82.5146,
+          "startBeat": 232,
+          "endBeat": 264,
+          "startBar": 59,
+          "endBar": 67
+        },
+        {
+          "label": "chorus",
+          "startSeconds": 82.5146,
+          "endSeconds": 133.7646,
+          "startBeat": 264,
+          "endBeat": 428,
+          "startBar": 67,
+          "endBar": 108
+        },
+        {
+          "label": "outro",
+          "startSeconds": 133.7646,
+          "endSeconds": 148.8869,
+          "startBeat": 428,
+          "endBeat": 477,
+          "startBar": 108,
+          "endBar": 121
+        }
+      ],
+      "performancePads": [
+        {
+          "slot": 1,
+          "type": "hotCue",
+          "label": "FIRST BEAT",
+          "timeSeconds": 0.0146,
+          "beatIndex": 0,
+          "barIndex": 0,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 2,
+          "type": "hotCue",
+          "label": "VERSE",
+          "timeSeconds": 10.0146,
+          "beatIndex": 32,
+          "barIndex": 8,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 3,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 32.5146,
+          "beatIndex": 104,
+          "barIndex": 26,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 4,
+          "type": "hotCue",
+          "label": "BREAKDOWN",
+          "timeSeconds": 72.5146,
+          "beatIndex": 232,
+          "barIndex": 58,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 5,
+          "type": "hotCue",
+          "label": "CHORUS",
+          "timeSeconds": 82.5146,
+          "beatIndex": 264,
+          "barIndex": 66,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        },
+        {
+          "slot": 6,
+          "type": "hotCue",
+          "label": "OUTRO",
+          "timeSeconds": 133.7646,
+          "beatIndex": 428,
+          "barIndex": 107,
+          "beatInBar": 1,
+          "source": "auto",
+          "locked": false
+        }
+      ],
+      "degreeFingerprint": [
+        "VIImaj7",
+        "bII",
+        "iv",
+        "bII",
+        "iv",
+        "bII",
+        "i7",
+        "bIImaj7",
+        "i",
+        "N",
+        "iv7",
+        "N",
+        "bIImaj7",
+        "iv7",
+        "bIImaj7",
+        "Imaj7",
+        "bIImaj7",
+        "iv7",
+        "N",
+        "VImaj7",
+        "iv7",
+        "bIImaj7",
+        "VImaj7",
+        "bIImaj7",
+        "iv7",
+        "bIImaj7",
+        "V7/VII",
+        "#IVmaj7",
+        "VII",
+        "bIImaj7",
+        "VII",
+        "IVmaj7",
+        "V7/VI",
+        "iv7",
+        "bIImaj7",
+        "iv7",
+        "bIImaj7",
+        "IIImaj7",
+        "iv7",
+        "bIImaj7",
+        "VImaj7",
+        "IIImaj7",
+        "bIImaj7",
+        "VImaj7",
+        "bIImaj7",
+        "iv7",
+        "III",
+        "VImaj7",
+        "III",
+        "i7",
+        "iv7",
+        "V7/iv",
+        "VImaj7",
+        "iv7",
+        "bII",
+        "VImaj7",
+        "III",
+        "i7",
+        "VImaj7",
+        "Imaj7",
+        "bIImaj7",
+        "IIImaj7",
+        "iv7",
+        "IIImaj7",
+        "bIImaj7",
+        "IIImaj7",
+        "iv7",
+        "V7/VI",
+        "bIImaj7",
+        "IIImaj7",
+        "iv7",
+        "vii7",
+        "i7",
+        "VImaj7",
+        "V7/VI",
+        "i7",
+        "bIImaj7",
+        "IIImaj7",
+        "bIImaj7",
+        "i7",
+        "bIImaj7",
+        "IIImaj7",
+        "iv7",
+        "V7/VI",
+        "bIImaj7",
+        "IIImaj7",
+        "iv7",
+        "vii7",
+        "i7",
+        "bIImaj7",
+        "V7/VI",
+        "IV",
+        "VI°",
+        "bII",
+        "iv",
+        "VI",
+        "iv",
+        "VI",
+        "I",
+        "iv",
+        "VImaj7",
+        "i",
+        "V7/VI",
+        "v°"
       ],
       "capabilities": {
         "features": "complete",

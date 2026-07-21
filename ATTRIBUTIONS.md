@@ -1,7 +1,10 @@
 # Music Attributions
 
-All music tracks bundled in this repository (`data/sample/`) are produced and published by
-**BGMer** (https://bgmer.net) and are used under the BGMer terms of use: https://bgmer.net/terms
+Most music tracks bundled in this repository (`data/sample/`) are produced and published by
+**BGMer** (https://bgmer.net) and are used under the BGMer terms of use: https://bgmer.net/terms.
+The exceptions are the **original works by the repository author** listed under "Original works"
+below (`Re_n1-38_final.wav`, `n1-25.wav`, `n1-5_Ryme.wav`) — these are **not** BGMer material and
+are **not** governed by the BGMer terms.
 
 Summary of the BGMer terms as they apply to this project (verified 2026-07-17):
 
@@ -52,6 +55,18 @@ perception, 6/4 metre) and one was excluded by curation. They remain bundled
 with full attribution and can return once the grid solver supports those cases.
 
 Music: BGMer — https://bgmer.net
+
+## Original works (repository author)
+
+These tracks are the repository author's own compositions, added as candidate tracks for the
+Vibraxis demo. They are **not** BGMer material. Artist handle and exact usage/redistribution
+terms are provisional and to be confirmed by the author.
+
+| File | Title | Artist | BPM | Notes |
+|---|---|---|---:|---|
+| `Re_n1-38_final.wav` | Re_n1-38 | staroprog (provisional) | 192 | author-supplied BPM; `rigidGrid` override |
+| `n1-25.wav` | n1-25 | staroprog (provisional) | 109.96 (auto — unconfirmed) | true BPM to be confirmed |
+| `n1-5_Ryme.wav` | n1-5 Ryme | staroprog (provisional) | 100.45 (auto — unconfirmed) | true BPM to be confirmed |
 
 ## Third-party software
 
