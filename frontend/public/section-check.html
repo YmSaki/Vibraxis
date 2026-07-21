@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Vibraxis Section Check — 構造アノテーションツール</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #101018; color: #e8e8f0; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; } h2 { font-size: 14px; margin: 14px 0 6px; color: #bcd; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+  button { background: #2a2a3a; color: #e8e8f0; border: 1px solid #555; padding: 6px 12px; cursor: pointer; border-radius: 4px; }
+  button:hover { border-color: #88a; }
+  button.on { background: #0a6; border-color: #0c8; }
+  select, input[type=number], input[type=text], textarea { background: #1a1a26; color: #e8e8f0; border: 1px solid #555; padding: 5px; border-radius: 4px; }
+  input[type=range] { width: 360px; }
+  .hint { color: #9aa; font-size: 12px; }
+  .warn { color: #fd6; }
+  #pos { font-variant-numeric: tabular-nums; }
+  canvas { width: 100%; height: 300px; background: #0a0a12; border: 1px solid #333; border-radius: 6px; display: block; cursor: crosshair; }
+  table { border-collapse: collapse; margin-top: 8px; width: 100%; max-width: 900px; }
+  td, th { border: 1px solid #3a3a4a; padding: 3px 8px; font-size: 13px; text-align: left; }
+  tr.sel td { background: #23324a; }
+  .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .lab { padding: 4px 9px; font-size: 12px; }
+  textarea { width: 640px; height: 40px; }
+</style>
+</head>
+<body>
+<h1>Vibraxis Section Check — 構造アノテーションツール</h1>
+<p class="hint">
+  設計思想: <b>①「曲の雰囲気が変わった所」で区切る（境界）→ ②ラベルは後から貼る</b>。境界検出（客観的）とラベル付け（要人手正解）を分離します。
+  波形＝RMS(灰)・低域&lt;150Hz=キック/ベース(赤)・輝さ centroid(紫)・変化度 novelty(黄)。緑の縦線=解析ダウンビート、細灰線=現行アルゴリズムの区間(参考)。
+  <code>npm run dev</code> 起動中に <code>http://localhost:5173/section-check.html</code> で開くこと。
+</p>
+
+<div class="row">
+  <label>曲: <select id="track"></select></label>
+  <button id="load">ロード</button>
+  <span id="meta" class="hint"></span>
+</div>
+
+<div class="row">
+  <button id="play">▶ 再生 (Space)</button>
+  <label>音量 <input id="vol" type="range" min="0" max="1" step="0.01" value="0.7" style="width:120px"></label>
+  <input id="seek" type="range" min="0" max="100" step="0.01" value="0">
+  <span id="pos">0:00 / 0:00</span>
+</div>
+
+<canvas id="viz" width="1600" height="300"></canvas>
+<p class="hint">
+  波形エリアをクリック=シーク / <b>Shift+クリック=境界を追加</b> / 境界線を<b>ドラッグ=移動</b> / 下段の区間帯をクリック=選択。
+  スナップ: <label><input type="radio" name="snap" value="bar" checked> 小節</label> <label><input type="radio" name="snap" value="beat"> 拍</label> <label><input type="radio" name="snap" value="free"> なし</label>
+</p>
+
+<h2>① 境界（雰囲気の変化点）</h2>
+<div class="row">
+  <button id="initAuto">自動提案(novelty)で初期化</button>
+  <button id="initCommitted">現行アルゴリズム区間で初期化</button>
+  <button id="initClear">1区間にリセット</button>
+  <button id="addAtPlayhead">＋境界(再生位置) [b]</button>
+  <span class="hint">novelty感度: <input id="sens" type="range" min="60" max="95" step="1" value="80" style="width:120px"> <span id="sensv">80</span>%tile</span>
+</div>
+
+<h2>② ラベル（選択中の区間に貼る）</h2>
+<div class="row" id="labelBtns"></div>
+
+<h2>区間リスト</h2>
+<table id="secTable"><thead><tr><th>#</th><th>start</th><th>end</th><th>長さ</th><th>label</th><th>操作</th></tr></thead><tbody></tbody></table>
+
+<h2>保存 / エクスポート</h2>
+<div class="row"><label>メモ: <textarea id="notes" placeholder="例: 45sで一瞬キックが抜けるがフィル / ボーカルは60sから"></textarea></label></div>
+<div class="row">
+  <button id="save">この曲を保存 (localStorage)</button>
+  <button id="export">全曲をJSONエクスポート</button>
+  <span id="savemsg" class="hint"></span>
+</div>
+<p class="hint">エクスポートは <code>section-annotations.json</code> をダウンロードします。これが構造の<b>人手正解</b>になり、後段のベンチ（境界一致・ラベル一致）で解析ロジックを客観計測できます。</p>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const LS_KEY = "vibraxis-section-check";
+const LABELS = ["intro","verse","preChorus","chorus","build","drop","breakdown","bridge","instrumental","outro","other"];
+const COLORS = {intro:"#8ecae6",verse:"#a3b18a",preChorus:"#c9a227",chorus:"#e07a5f",build:"#f4a261",drop:"#e63946",breakdown:"#457b9d",bridge:"#b5838d",instrumental:"#adb5bd",outro:"#6c757d",other:"#ced4da"};
+
+let ctx = null, gain = null, buffer = null, srcNode = null;
+let catalog = [], current = null, analysis = null;
+let playing = false, startCtxTime = 0, startOffset = 0, uiTimer = null;
+let env = null;                 // {t,rms,low,bright,novelty, bars, beats, duration}
+let sections = [];              // [{start,end,label|null}]  (start[0]=0, end[last]=duration)
+let selected = -1;             // selected section index
+let drag = null;               // {bi} internal boundary index being dragged
+
+const store = () => JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+const setStore = (s) => localStorage.setItem(LS_KEY, JSON.stringify(s));
+const fmt = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const snapMode = () => document.querySelector("input[name=snap]:checked").value;
+
+// ---------------------------------------------------------------- audio
+function ensureCtx() {
+  if (!ctx) { ctx = new AudioContext(); gain = ctx.createGain(); gain.connect(ctx.destination); }
+  gain.gain.value = Number($("vol").value);
+  return ctx.resume();
+}
+const nowPos = () => playing ? startOffset + Math.max(0, ctx.currentTime - startCtxTime) : startOffset;
+
+async function play() {
+  if (!buffer) return;
+  await ensureCtx();
+  srcNode = ctx.createBufferSource();
+  srcNode.buffer = buffer; srcNode.connect(gain);
+  const startAt = ctx.currentTime + 0.08;
+  startCtxTime = startAt; srcNode.start(startAt, startOffset);
+  playing = true; $("play").textContent = "⏸ 停止 (Space)";
+  uiTimer = setInterval(() => { if (!playing) return; if (nowPos() >= buffer.duration) return stop(); $("seek").value = nowPos(); $("pos").textContent = `${fmt(nowPos())} / ${fmt(buffer.duration)}`; draw(); }, 60);
+}
+function stop() {
+  if (srcNode) { try { srcNode.stop(); } catch {} srcNode = null; }
+  if (playing) startOffset = Math.min(nowPos(), buffer ? buffer.duration : 0);
+  playing = false; $("play").textContent = "▶ 再生 (Space)"; clearInterval(uiTimer); draw();
+}
+function seekTo(sec) {
+  const was = playing; stop();
+  startOffset = Math.max(0, Math.min(sec, buffer ? buffer.duration : 0));
+  $("seek").value = startOffset; $("pos").textContent = `${fmt(startOffset)} / ${fmt(buffer ? buffer.duration : 0)}`;
+  if (was) void play(); else draw();
+}
+
+// ---------------------------------------------------------------- envelopes (mood shape, computed in-browser)
+function onepole(x, sr, fc, high) {
+  const RC = 1 / (2 * Math.PI * fc), dt = 1 / sr;
+  const a = high ? RC / (RC + dt) : dt / (RC + dt);
+  const y = new Float32Array(x.length);
+  if (high) { let prevX = 0, prevY = 0; for (let i = 0; i < x.length; i++) { y[i] = a * (prevY + x[i] - prevX); prevX = x[i]; prevY = y[i]; } }
+  else { let prevY = 0; for (let i = 0; i < x.length; i++) { prevY += a * (x[i] - prevY); y[i] = prevY; } }
+  return y;
+}
+function rmsRange(x, s, e) { let a = 0; for (let i = s; i < e; i++) a += x[i] * x[i]; return Math.sqrt(a / Math.max(1, e - s)); }
+function robustNorm(arr) {
+  const s = [...arr].sort((a, b) => a - b);
+  const hi = s[Math.floor(s.length * 0.97)] || 1e-9;
+  return arr.map((v) => Math.min(1, v / (hi + 1e-9)));
+}
+function percentile(arr, p) { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length * p / 100)] || 0; }
+
+function computeEnvelopes(buf) {
+  const sr = buf.sampleRate, N = buf.length, ch = buf.numberOfChannels;
+  const x = new Float32Array(N);
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < N; i++) x[i] += d[i] / ch; }
+  const lp = onepole(x, sr, 150, false);
+  const hp = onepole(x, sr, 3000, true);
+  const hop = Math.round(sr * 0.05), frames = Math.floor(N / hop);
+  const t = new Array(frames), rms = new Array(frames), low = new Array(frames), bright = new Array(frames);
+  for (let f = 0; f < frames; f++) { const s = f * hop, e = Math.min(N, s + hop); t[f] = s / sr; rms[f] = rmsRange(x, s, e); low[f] = rmsRange(lp, s, e); bright[f] = rmsRange(hp, s, e); }
+  const nr = robustNorm(rms), nl = robustNorm(low), nb = robustNorm(bright);
+  // novelty = summed positive change of the normalized envelopes (a "mood shift" detector), smoothed.
+  const nov = new Array(frames).fill(0);
+  for (let f = 1; f < frames; f++) nov[f] = Math.max(0, nr[f] - nr[f-1]) + Math.max(0, nl[f] - nl[f-1]) + Math.max(0, nb[f] - nb[f-1]);
+  const sm = new Array(frames).fill(0);
+  for (let f = 0; f < frames; f++) { let a = 0, n = 0; for (let k = -3; k <= 3; k++) { const j = f + k; if (j >= 0 && j < frames) { a += nov[j]; n++; } } sm[f] = a / n; }
+  return { t, rms: nr, low: nl, bright: robustNorm(bright), novelty: robustNorm(sm), duration: buf.duration };
+}
+
+// ---------------------------------------------------------------- snapping + auto boundaries
+function snap(sec) {
+  const mode = snapMode();
+  if (mode === "free" || !env) return sec;
+  const grid = mode === "bar" ? env.bars : env.beats;
+  if (!grid || !grid.length) return sec;
+  let best = grid[0], bd = Infinity;
+  for (const g of grid) { const d = Math.abs(g - sec); if (d < bd) { bd = d; best = g; } }
+  return best;
+}
+function autoBoundaries(sensPct) {
+  if (!env) return [];
+  const nov = env.novelty, t = env.t, dur = env.duration;
+  const thr = percentile(nov, sensPct);
+  const minGap = Math.max(6, dur / 24);       // >= ~4 bars-ish, at least 6s apart
+  const peaks = [];
+  for (let f = 3; f < nov.length - 3; f++) {
+    if (nov[f] < thr) continue;
+    let isMax = true;
+    for (let k = -3; k <= 3; k++) if (nov[f + k] > nov[f]) isMax = false;
+    if (!isMax) continue;
+    const st = snap(t[f]);
+    if (st > 3 && st < dur - 3 && (!peaks.length || st - peaks[peaks.length - 1] >= minGap)) peaks.push(st);
+  }
+  return peaks;
+}
+
+// ---------------------------------------------------------------- section model
+function boundsToSections(bounds, dur) {
+  const b = [0, ...bounds.filter((x) => x > 0.01 && x < dur - 0.01).sort((a, z) => a - z), dur];
+  const out = [];
+  for (let i = 0; i < b.length - 1; i++) out.push({ start: b[i], end: b[i + 1], label: null });
+  return out;
+}
+function internalBoundaries() { return sections.slice(0, -1).map((s) => s.end); }
+
+function addBoundary(t) {
+  t = snap(t);
+  for (let i = 0; i < sections.length; i++) {
+    if (t > sections[i].start + 0.05 && t < sections[i].end - 0.05) {
+      sections.splice(i + 1, 0, { start: t, end: sections[i].end, label: sections[i].label });
+      sections[i].end = t; selected = i; break;
+    }
+  }
+  refresh();
+}
+function deleteBoundary(bi) {      // remove boundary between section bi and bi+1
+  if (bi < 0 || bi >= sections.length - 1) return;
+  sections[bi].end = sections[bi + 1].end;
+  sections.splice(bi + 1, 1);
+  selected = Math.min(selected, sections.length - 1);
+  refresh();
+}
+function moveBoundary(bi, t) {
+  t = snap(t);
+  const lo = sections[bi].start + 0.05, hi = sections[bi + 1].end - 0.05;
+  t = Math.max(lo, Math.min(hi, t));
+  sections[bi].end = t; sections[bi + 1].start = t;
+  refresh();
+}
+
+// ---------------------------------------------------------------- drawing
+const cv = $("viz");
+function draw() {
+  if (!cv.getContext) return;
+  const g = cv.getContext("2d");
+  const W = cv.width, H = cv.height, envH = H - 70, dur = env ? env.duration : (buffer ? buffer.duration : 1);
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = "#0a0a12"; g.fillRect(0, 0, W, H);
+  const X = (t) => (t / dur) * W;
+  if (env) {
+    const line = (arr, color, lw, fill) => {
+      g.beginPath();
+      for (let f = 0; f < arr.length; f++) { const x = X(env.t[f]), y = envH - arr[f] * (envH - 6) - 3; f ? g.lineTo(x, y) : g.moveTo(x, y); }
+      if (fill) { g.lineTo(W, envH); g.lineTo(0, envH); g.closePath(); g.fillStyle = color; g.globalAlpha = 0.18; g.fill(); g.globalAlpha = 1; }
+      else { g.strokeStyle = color; g.lineWidth = lw; g.stroke(); }
+    };
+    line(env.rms, "#cccccc", 1, true);
+    line(env.low, "#e63946", 1.1, false);
+    line(env.bright, "#6a4c93", 0.9, false);
+    line(env.novelty, "#f4c542", 1.2, false);
+    // committed sections (reference) — faint ticks along the top
+    g.strokeStyle = "#3a5a3a"; g.lineWidth = 1; g.setLineDash([2, 3]);
+    for (const s of (analysis?.structure?.sections ?? [])) { g.beginPath(); g.moveTo(X(s.startSeconds), 0); g.lineTo(X(s.startSeconds), envH); g.stroke(); }
+    g.setLineDash([]);
+    // downbeats
+    g.strokeStyle = "rgba(42,157,143,0.25)"; g.lineWidth = 0.5;
+    for (const d of (analysis?.tempo?.downbeatsSeconds ?? [])) { g.beginPath(); g.moveTo(X(d), envH - 8); g.lineTo(X(d), envH); g.stroke(); }
+  }
+  // section lane
+  const laneY = envH + 4, laneH = H - laneY - 2;
+  sections.forEach((s, i) => {
+    const x0 = X(s.start), x1 = X(s.end);
+    g.fillStyle = s.label ? COLORS[s.label] : "#2a2a38";
+    g.globalAlpha = i === selected ? 1 : 0.82; g.fillRect(x0, laneY, x1 - x0, laneH); g.globalAlpha = 1;
+    if (i === selected) { g.strokeStyle = "#fff"; g.lineWidth = 2; g.strokeRect(x0 + 1, laneY + 1, x1 - x0 - 2, laneH - 2); }
+    g.fillStyle = s.label ? "#111" : "#889"; g.font = "bold 11px system-ui"; g.textAlign = "center";
+    if (x1 - x0 > 26) g.fillText(s.label || "?", (x0 + x1) / 2, laneY + laneH / 2 + 4);
+  });
+  // internal boundaries
+  g.strokeStyle = "#fff"; g.lineWidth = 1.5;
+  internalBoundaries().forEach((t) => { const x = X(t); g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); g.fillStyle = "#fff"; g.fillRect(x - 3, laneY, 6, 8); });
+  // playhead
+  const px = X(nowPos()); g.strokeStyle = "#4ade80"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, 0); g.lineTo(px, H); g.stroke();
+}
+
+// ---------------------------------------------------------------- canvas interaction
+function evtTime(e) { const r = cv.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width; return x * (env ? env.duration : buffer.duration); }
+function nearBoundary(t) {
+  const dur = env ? env.duration : buffer.duration, tol = dur * 0.008;
+  const ib = internalBoundaries(); let bi = -1, bd = tol;
+  ib.forEach((bt, i) => { const d = Math.abs(bt - t); if (d < bd) { bd = d; bi = i; } });
+  return bi;
+}
+cv.addEventListener("mousedown", (e) => {
+  if (!buffer) return;
+  const t = evtTime(e), r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * cv.height;
+  const bi = nearBoundary(t);
+  if (e.shiftKey) { addBoundary(t); return; }
+  if (bi >= 0) { drag = { bi }; return; }
+  if (y > cv.height - 70) { selected = sections.findIndex((s) => t >= s.start && t < s.end); refresh(); }
+  else seekTo(t);
+});
+window.addEventListener("mousemove", (e) => { if (drag) moveBoundary(drag.bi, evtTime(e)); });
+window.addEventListener("mouseup", () => { drag = null; });
+
+// ---------------------------------------------------------------- label buttons + table
+function buildLabelButtons() {
+  $("labelBtns").innerHTML = LABELS.map((l) => `<button class="lab" data-l="${l}"><span class="swatch" style="background:${COLORS[l]}"></span>${l}</button>`).join("") +
+    `<button class="lab" data-l="__none"><span class="swatch" style="background:#2a2a38"></span>ラベル解除</button>`;
+  document.querySelectorAll("#labelBtns .lab").forEach((b) => b.onclick = () => {
+    if (selected < 0) { $("savemsg").textContent = "先に区間を選択してください"; return; }
+    sections[selected].label = b.dataset.l === "__none" ? null : b.dataset.l; refresh();
+  });
+}
+function renderTable() {
+  const tb = document.querySelector("#secTable tbody");
+  tb.innerHTML = sections.map((s, i) => `<tr data-i="${i}" class="${i === selected ? "sel" : ""}">
+    <td>${i + 1}</td><td>${s.start.toFixed(2)}</td><td>${s.end.toFixed(2)}</td><td>${(s.end - s.start).toFixed(1)}s</td>
+    <td><span class="swatch" style="background:${s.label ? COLORS[s.label] : "#2a2a38"}"></span>${s.label || "?"}</td>
+    <td>${i < sections.length - 1 ? `<button data-del="${i}">次と結合</button>` : ""} <button data-seek="${s.start}">▶</button></td></tr>`).join("");
+  tb.querySelectorAll("tr").forEach((tr) => tr.onclick = (e) => { if (e.target.tagName === "BUTTON") return; selected = Number(tr.dataset.i); refresh(); });
+  tb.querySelectorAll("[data-del]").forEach((b) => b.onclick = () => deleteBoundary(Number(b.dataset.del)));
+  tb.querySelectorAll("[data-seek]").forEach((b) => b.onclick = () => seekTo(Number(b.dataset.seek)));
+}
+function refresh() { draw(); renderTable(); }
+
+// ---------------------------------------------------------------- load / persist
+async function init() {
+  catalog = (await (await fetch("/api/catalog")).json()).tracks;
+  $("track").innerHTML = catalog.map((t) => `<option value="${t.trackId}">${t.trackId} — ${t.title} (${t.bpm} BPM)</option>`).join("");
+  buildLabelButtons();
+}
+async function loadTrack() {
+  await ensureCtx(); stop();
+  const id = $("track").value; current = catalog.find((t) => t.trackId === id);
+  $("meta").textContent = "読込中…";
+  const [aRes, audioRes] = await Promise.all([fetch(`/api/analysis/${encodeURIComponent(id)}`), fetch(`/tracks/${encodeURIComponent(current.file)}`)]);
+  analysis = await aRes.json();
+  buffer = await ctx.decodeAudioData(await audioRes.arrayBuffer());
+  $("seek").max = buffer.duration; startOffset = 0;
+  $("meta").textContent = "波形解析中…";
+  await new Promise((r) => setTimeout(r, 10));
+  env = computeEnvelopes(buffer);
+  env.bars = analysis?.tempo?.barsSeconds ?? [];
+  env.beats = analysis?.tempo?.beatsSeconds ?? [];
+  $("meta").textContent = `${current.title} · ${current.bpm} BPM · ${fmt(buffer.duration)} · bars=${env.bars.length}`;
+  const saved = store()[id];
+  if (saved && saved.sections) { sections = saved.sections.map((s) => ({ ...s })); $("notes").value = saved.notes || ""; }
+  else { sections = boundsToSections(autoBoundaries(Number($("sens").value)), buffer.duration); $("notes").value = ""; }
+  selected = -1; refresh();
+}
+
+$("load").onclick = loadTrack;
+$("play").onclick = () => playing ? stop() : void play();
+$("vol").oninput = () => { if (gain) gain.gain.value = Number($("vol").value); };
+$("seek").oninput = (e) => seekTo(Number(e.target.value));
+$("sens").oninput = () => $("sensv").textContent = $("sens").value;
+$("initAuto").onclick = () => { if (buffer) { sections = boundsToSections(autoBoundaries(Number($("sens").value)), buffer.duration); selected = -1; refresh(); } };
+$("initCommitted").onclick = () => { const ss = analysis?.structure?.sections ?? []; if (ss.length) { sections = ss.map((s) => ({ start: s.startSeconds, end: s.endSeconds, label: LABELS.includes(s.label) ? s.label : null })); selected = -1; refresh(); } };
+$("initClear").onclick = () => { if (buffer) { sections = [{ start: 0, end: buffer.duration, label: null }]; selected = -1; refresh(); } };
+$("addAtPlayhead").onclick = () => buffer && addBoundary(nowPos());
+$("save").onclick = () => {
+  if (!current) return;
+  const s = store();
+  s[current.trackId] = { duration: buffer.duration, boundariesSeconds: [0, ...internalBoundaries(), buffer.duration], sections: sections.map((x) => ({ start: Number(x.start.toFixed(3)), end: Number(x.end.toFixed(3)), label: x.label })), notes: $("notes").value, annotatedAt: new Date().toISOString() };
+  setStore(s); $("savemsg").textContent = `${current.trackId} を保存 (${sections.length}区間, ${sections.filter((x) => x.label).length}ラベル済)`;
+};
+$("export").onclick = () => {
+  const blob = new Blob([JSON.stringify({ tool: "section-check", exportedAt: new Date().toISOString(), annotations: store() }, null, 2)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "section-annotations.json"; a.click();
+};
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); playing ? stop() : void play(); }
+  if (e.key === "b") { e.preventDefault(); if (buffer) addBoundary(nowPos()); }
+});
+window.addEventListener("resize", draw);
+init();
+</script>
+</body>
+</html>
