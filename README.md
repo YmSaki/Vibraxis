@@ -118,8 +118,9 @@ per-stage timings shown in the panel's provenance view.
 
 ### An analyzed, rights-cleared crate
 
-The bundled library (9 tracks by [BGMer](https://bgmer.net), see
-`ATTRIBUTIONS.md`) ships pre-analyzed by `analyze-tool/` (Python + librosa):
+The bundled library (19 tracks — 16 by [BGMer](https://bgmer.net) plus 3 original
+works by the author, see `ATTRIBUTIONS.md`) ships pre-analyzed by `analyze-tool/`
+(Python + librosa):
 BPM, beat and downbeat grids, key/Camelot, energy, and section structure
 (intro / build / drop / breakdown / outro). The DJ doesn't guess where the drop
 is — it knows.
@@ -152,8 +153,30 @@ mid-week, remaining integration work continued with another AI assistant
 into a structured `DjIntent` and picks the next track from deterministically
 scored candidates, via Structured Outputs against the schemas in `shared/dj/`.
 
-*This section will be expanded with concrete session highlights before
-submission.*
+Concrete session highlights:
+
+- **Spec and checker before features.** The first substantive commits locked the
+  VDAP step-0 contracts (`docs: lock VDAP step 0 contracts`) and added a machine
+  checker (`npm run check:protocol-docs`) — enforcing conformance-test numbering,
+  required contract literals, and canonical-state shape — *before* a single audio
+  feature existed. Every later stage was built against that fixed contract.
+- **A staged roadmap, reviewed per stage.** Runtime foundations → dispatcher/client
+  → safe audio foundation (staged load, limiter) → crossfader/EQ → atomic beat
+  transitions → deterministic selection engine → provider routes → agent panel →
+  autonomous conductor, each designed, tested, and committed separately, with review
+  notes in `.claude/.tmp/`.
+- **Honest handling of a live surprise.** We discovered mid-build that `gpt-5.6` is a
+  *family alias* the API resolves to a concrete variant (e.g. `gpt-5.6-luna`). Rather
+  than silently accept whatever came back, we made the model caller-selectable via
+  `GPT56_MODEL` while keeping an exact-match guard (`gpt_model_mismatch`) — in keeping
+  with the §0 "never repair, always reject with a reason" rule.
+- **A human gate on the data.** librosa's dynamic beat tracking wandered on
+  constant-tempo material, so Codex built a rigid beat-grid solver; every grid was
+  then auditioned **by ear**, and four tracks that could not be made musically correct
+  were excluded from the catalog rather than shipped wrong.
+
+Full detail — including the bounded in-product decision pipeline — is in
+[`highlight_how_Codex_&_GPT-5.6_were_used..md`](highlight_how_Codex_&_GPT-5.6_were_used..md).
 
 ## Music licensing
 

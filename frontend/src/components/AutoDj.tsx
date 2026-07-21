@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RuntimeState, DeckId } from '@vibraxis/shared/vdap'
+import type { RuntimeState, DeckId, LoadResult } from '@vibraxis/shared/vdap'
 import type { CatalogTrack } from '../catalog'
 import { AgentApiClient, AgentApiError } from '../agent/AgentApiClient'
 import { buildDjContext, type VelocityLimits } from '../agent/djContext'
-import { captureApplySnapshot, evaluateApply, runApply } from '../agent/applyDecision'
 import type { TransitionClient } from '../runtime/transition/TransitionExecutor'
 import type { AgentCapability, DjContext, DjIntent } from '../agent/contract'
 import type {
@@ -94,13 +93,128 @@ function activePlayingDeck(state: RuntimeState): DeckId | null {
   return null
 }
 
-// How long before a track's end the conductor must have STARTED the next mix.
-// The ramp itself is several bars (~12-15s) and the target deck load/sync needs
-// a moment, so we begin with comfortable runway. Tuned live.
-const MIX_LEAD_SECONDS = 24
+// Fallback mix-out lead (seconds before the end), used ONLY when the outgoing
+// track has no analysed sections to fire on. Normally the conductor fires at the
+// track's OUTRO boundary (see mixOutSeconds), not on a timer.
+const MIX_OUT_FALLBACK_LEAD = 20
 // Do not re-attempt an auto-mix that just failed for this long (avoids a hot
 // loop when e.g. the target deck is briefly busy).
 const RETRY_COOLDOWN_MS = 4000
+
+/** Crossfader position that fully favours a deck (runtime convention: A → −1, B → +1). */
+function deckSide(deckId: DeckId): number {
+  return deckId === 'B' ? 1 : -1
+}
+
+// Sections a track is worth mixing INTO — the groove, not an intro/breakdown/build.
+// Bringing a track in on its breakdown starts it sparse and it never connects.
+const GROOVE_LABELS = new Set(['drop', 'chorus', 'verse'])
+
+/**
+ * Mix-IN cue for the incoming track: the head of its first HIGH-ENERGY section
+ * (drop / chorus / verse). Skipping the intro AND any leading breakdown/build means
+ * the incoming lands on real groove, not dead air or a sparse breakdown. A section
+ * head is bar-aligned, so it is also a downbeat. Falls back to the first non-intro
+ * section, then the track head.
+ */
+function mixInCueSeconds(track: CatalogTrack): number {
+  const sections = track.sectionSummary
+  if (sections.length === 0) return 0
+  const groove = sections.find((s) => GROOVE_LABELS.has(s.label.toLowerCase()))
+  if (groove) return groove.startSeconds
+  const content = sections.find((s) => s.label.toLowerCase() !== 'intro')
+  return (content ?? sections[0]).startSeconds
+}
+
+/**
+ * Mix-OUT point for the outgoing track: ONE bar before its OUTRO boundary. Firing a
+ * bar early (a) gives the beat-matched transition real runway so it never runs off
+ * the end of the grid mid-switch (which would strand the set with no active deck),
+ * and (b) lets the crossfade complete right as the outro lands. Falls back to the
+ * last section head, then to a fixed lead before the end when there is no structure.
+ */
+function mixOutSeconds(track: CatalogTrack, durationSeconds: number): number {
+  const sections = track.sectionSummary
+  const oneBarSeconds = 240 / track.bpm // 4 beats · 60s, in the track's own timeline
+  if (sections.length === 0) return Math.max(0, durationSeconds - MIX_OUT_FALLBACK_LEAD)
+  const outro = sections.find((s) => s.label.toLowerCase() === 'outro')
+  const boundary = outro ? outro.startSeconds : sections[sections.length - 1].startSeconds
+  return Math.max(0, boundary - oneBarSeconds)
+}
+
+/**
+ * PREPARE (Planner) — done calmly, ahead of time. Load the next track onto the idle
+ * deck, cue it to its mix-in point, and tempo-sync it to the live deck. Leaves the
+ * deck READY (paused) so the switch itself has ZERO loading latency; nothing can
+ * delay the downbeat at fire time. sourceSeconds cue only (bar/beat seeks need grid
+ * resolution that can fail immediately after a load).
+ */
+async function prepareNextDeck(
+  client: TransitionClient,
+  p: { targetDeckId: DeckId; nextTrackId: string; cueSeconds: number; referenceDeckId: DeckId },
+): Promise<{ ok: true; targetBindingId: string } | { ok: false; detail: string }> {
+  const load = await (
+    await client.mutate('deck.load', { deckId: p.targetDeckId, source: { kind: 'catalog', trackId: p.nextTrackId } }, {})
+  ).terminal
+  if (load.event !== 'intent.completed') return { ok: false, detail: `load ${load.event}` }
+  const targetBindingId = (load.result as LoadResult).binding.bindingId
+
+  if (p.cueSeconds > 0) {
+    const cue = await (
+      await client.mutate(
+        'deck.seek',
+        { deckId: p.targetDeckId, target: { type: 'sourceSeconds', sourceSeconds: p.cueSeconds }, resume: 'pause' },
+        { expectedBindingId: targetBindingId },
+      )
+    ).terminal
+    if (cue.event !== 'intent.completed') return { ok: false, detail: `cue ${cue.event}` }
+  }
+
+  const sync = await (
+    await client.mutate(
+      'deck.sync',
+      { deckId: p.targetDeckId, reference: p.referenceDeckId, mode: 'tempo' },
+      { expectedBindingId: targetBindingId },
+    )
+  ).terminal
+  if (sync.event !== 'intent.completed') return { ok: false, detail: `sync ${sync.event}` }
+  return { ok: true, targetBindingId }
+}
+
+// Crossfade length for the cut, in seconds. The incoming deck is already
+// phase-locked to the bar and cued to its groove, so this is a fast slider move on
+// the bar line — a sharp cut, not a long blend. Kept as a real equal-power ramp
+// (not an instant 0→1 jump) so it never clicks.
+const CUT_CROSSFADE_SECONDS = 0.1
+
+/**
+ * FIRE (Executor) — the incoming deck is already loaded, cued and tempo-synced. Hand
+ * the switch to the runtime's atomic `transition.start`: on the OUTGOING deck's next
+ * bar it starts the incoming from its cue (phase-locked to the bar) and slides the
+ * crossfader across in {@link CUT_CROSSFADE_SECONDS}s — a sharp on-the-bar cut. Then
+ * pause the now-inaudible outgoing deck. No loading happens here, so the beat cannot
+ * slip.
+ */
+async function fireCut(
+  client: TransitionClient,
+  p: { activeDeckId: DeckId; targetDeckId: DeckId; activeBindingId: string; targetBindingId: string },
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const trans = await (
+    await client.mutate('transition.start', {
+      activeDeckId: p.activeDeckId,
+      activeBindingId: p.activeBindingId,
+      targetDeckId: p.targetDeckId,
+      targetBindingId: p.targetBindingId,
+      at: 'nextBar',
+      crossfader: { to: deckSide(p.targetDeckId), duration: { seconds: CUT_CROSSFADE_SECONDS }, curve: 'equalPower' },
+    }, {})
+  ).terminal
+  if (trans.event !== 'intent.completed') return { ok: false, detail: `transition ${trans.event}` }
+  await (
+    await client.mutate('deck.pause', { deckId: p.activeDeckId }, { expectedBindingId: p.activeBindingId })
+  ).terminal
+  return { ok: true }
+}
 
 export function AutoDj(props: AutoDjProps) {
   const { api, capability, runtimeState, tracks, velocity, recentlyPlayedTrackIds, getApplyClient, onBootstrap } = props
@@ -112,6 +226,11 @@ export function AutoDj(props: AutoDjProps) {
   const [lastRejection, setLastRejection] = useState<string | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [chatBusy, setChatBusy] = useState(false)
+  // The next track — already loaded, cued and tempo-synced, WAITING on the idle
+  // deck (Planner output). null means nothing is prepared yet.
+  const [committedNext, setCommittedNext] = useState<
+    { targetDeckId: DeckId; targetBindingId: string; trackId: string; title: string; cueSeconds: number } | null
+  >(null)
 
   // Refs so the interval callback always sees the latest values without
   // re-arming the timer on every state change.
@@ -119,10 +238,13 @@ export function AutoDj(props: AutoDjProps) {
   const policyRef = useRef(policy)
   const queueRef = useRef(queue)
   const mixingRef = useRef(false)
+  const preparingRef = useRef(false)
+  const committedNextRef = useRef(committedNext)
   const cooldownUntilRef = useRef(0)
   runtimeRef.current = runtimeState
   policyRef.current = policy
   queueRef.current = queue
+  committedNextRef.current = committedNext
 
   const trackById = useMemo(() => {
     const map = new Map<string, CatalogTrack>()
@@ -130,13 +252,17 @@ export function AutoDj(props: AutoDjProps) {
     return map
   }, [tracks])
 
-  const performAutoMix = useCallback(async () => {
+  // PLANNER — choose the next track and PREPARE it (load + cue to its mix-in point
+  // + tempo-sync) on the idle deck, calmly and ahead of time. The result waits as
+  // `committedNext` until the Executor fires it.
+  const prepareNext = useCallback(async (activeDeckId: DeckId) => {
     const state = runtimeRef.current
     const client = getApplyClient()
     if (state === null || client === null) return
     const ctx = buildDjContext({ runtimeState: state, tracks, velocity, recentlyPlayedTrackIds })
     if (!ctx.ok) {
       setLastRejection(`context: ${ctx.reason.code}`)
+      cooldownUntilRef.current = runtimeNow() * 1000 + RETRY_COOLDOWN_MS
       return
     }
     // Consume a queued request only if it is a currently-eligible candidate.
@@ -144,8 +270,8 @@ export function AutoDj(props: AutoDjProps) {
     const queued = queueRef.current.find((id) => candidateIds.has(id)) ?? null
     const intent = policyToIntent(policyRef.current, queued)
 
-    mixingRef.current = true
-    setStatus('selecting the next track…')
+    preparingRef.current = true
+    setStatus('choosing & cueing the next track…')
     try {
       const res = await api.decide({ route: 'deterministic', context: ctx.context as DjContext, intent })
       if (res.outcome !== 'decided') {
@@ -154,63 +280,152 @@ export function AutoDj(props: AutoDjProps) {
         cooldownUntilRef.current = runtimeNow() * 1000 + RETRY_COOLDOWN_MS
         return
       }
-      const snapshot = captureApplySnapshot(ctx.context, state)
-      const evaluation = evaluateApply(res.decision, ctx.context, state, snapshot)
-      if (evaluation.status !== 'ready') {
-        setLastRejection(`mix blocked: ${evaluation.reason.code}`)
+      const nextTrack = trackById.get(res.decision.nextTrackId)
+      const title = nextTrack?.title ?? res.decision.nextTrackId
+      const cueSeconds = nextTrack ? mixInCueSeconds(nextTrack) : 0
+      const prep = await prepareNextDeck(client, {
+        targetDeckId: res.decision.targetDeckId,
+        nextTrackId: res.decision.nextTrackId,
+        cueSeconds,
+        referenceDeckId: activeDeckId,
+      })
+      if (!prep.ok) {
+        setLastRejection(`prepare ${prep.detail}`)
         cooldownUntilRef.current = runtimeNow() * 1000 + RETRY_COOLDOWN_MS
         return
       }
-      const nextTitle = trackById.get(res.decision.nextTrackId)?.title ?? res.decision.nextTrackId
-      setStatus(`mixing into ${nextTitle}…`)
+      setCommittedNext({
+        targetDeckId: res.decision.targetDeckId,
+        targetBindingId: prep.targetBindingId,
+        trackId: res.decision.nextTrackId,
+        title,
+        cueSeconds,
+      })
       setLastRejection(null)
-      const result = await runApply(client, evaluation.plan, () => {})
-      if (result.status === 'completed') {
-        if (queued !== null) setQueue((q) => q.filter((id) => id !== queued))
-        setStatus(`now playing ${nextTitle}`)
+      setStatus('running · next cued & synced')
+    } catch (cause) {
+      setLastRejection(cause instanceof Error ? cause.message : 'prepare failed')
+      cooldownUntilRef.current = runtimeNow() * 1000 + RETRY_COOLDOWN_MS
+    } finally {
+      preparingRef.current = false
+    }
+  }, [api, tracks, velocity, recentlyPlayedTrackIds, getApplyClient, trackById])
+
+  // EXECUTOR — the prepared deck is loaded, cued and synced. Fire the cut on the
+  // outgoing track's bar; no loading happens here, so the downbeat cannot slip.
+  const fireCommitted = useCallback(async (activeDeckId: DeckId) => {
+    const state = runtimeRef.current
+    const client = getApplyClient()
+    const cn = committedNextRef.current
+    if (state === null || client === null || cn === null) return
+    const activeBindingId = state.decks[activeDeckId].binding?.bindingId
+    if (activeBindingId === undefined || activeBindingId === null) return
+    const target = state.decks[cn.targetDeckId]
+    // The prepared deck must still hold exactly what we cued; if a user reloaded or
+    // started it, drop the plan and re-prepare rather than fire against stale state.
+    if (target.binding?.bindingId !== cn.targetBindingId || target.transport.phase === 'playing') {
+      setCommittedNext(null)
+      return
+    }
+    mixingRef.current = true
+    setStatus(`cut → ${cn.title}`)
+    try {
+      const result = await fireCut(client, {
+        activeDeckId,
+        targetDeckId: cn.targetDeckId,
+        activeBindingId,
+        targetBindingId: cn.targetBindingId,
+      })
+      if (result.ok) {
+        setQueue((q) => q.filter((id) => id !== cn.trackId))
+        setCommittedNext(null)
+        setStatus(`now playing ${cn.title}`)
       } else {
-        setLastRejection(`mix ${result.status}`)
+        setLastRejection(`cut ${result.detail}`)
         cooldownUntilRef.current = runtimeNow() * 1000 + RETRY_COOLDOWN_MS
       }
     } catch (cause) {
-      setLastRejection(cause instanceof Error ? cause.message : 'auto-mix failed')
+      setLastRejection(cause instanceof Error ? cause.message : 'cut failed')
       cooldownUntilRef.current = runtimeNow() * 1000 + RETRY_COOLDOWN_MS
     } finally {
       mixingRef.current = false
     }
-  }, [api, tracks, velocity, recentlyPlayedTrackIds, getApplyClient, trackById])
+  }, [getApplyClient])
 
-  // Pin the loop to the latest performAutoMix WITHOUT re-arming the timer on
-  // every render: getApplyClient (and other props) get a fresh identity each
-  // App tick (~100ms), so depending on performAutoMix here would clear+rearm
-  // the 400ms interval before it ever fires.
-  const performAutoMixRef = useRef(performAutoMix)
-  performAutoMixRef.current = performAutoMix
+  // RECOVERY — if the booth ever goes silent (a track ended before a cut could
+  // fire), start the already-prepared next deck immediately and move the crossfader
+  // to it. Not beat-matched, but a silent booth is worse than an un-matched save.
+  const recoverIdle = useCallback(async () => {
+    const state = runtimeRef.current
+    const client = getApplyClient()
+    const cn = committedNextRef.current
+    if (state === null || client === null || cn === null) return
+    const target = state.decks[cn.targetDeckId]
+    if (target.binding?.bindingId !== cn.targetBindingId || target.transport.phase !== 'ready') return
+    mixingRef.current = true
+    setStatus(`recovering → ${cn.title}`)
+    try {
+      const play = await (
+        await client.mutate('deck.play', { deckId: cn.targetDeckId }, { expectedBindingId: cn.targetBindingId })
+      ).terminal
+      if (play.event !== 'intent.completed') return
+      await (await client.mutate('mixer.setCrossfader', { position: deckSide(cn.targetDeckId) }, {})).terminal
+      setQueue((q) => q.filter((id) => id !== cn.trackId))
+      setCommittedNext(null)
+      setStatus(`now playing ${cn.title}`)
+    } finally {
+      mixingRef.current = false
+    }
+  }, [getApplyClient])
 
-  // The conductor loop: poll the live active-deck position and fire the next
-  // mix once we are within the lead window before its outro. Runs only while
-  // the set is running.
+  // Pin the loop to the latest callbacks WITHOUT re-arming the timer on every
+  // render (getApplyClient gets a fresh identity each App tick).
+  const prepareNextRef = useRef(prepareNext)
+  const fireCommittedRef = useRef(fireCommitted)
+  const recoverIdleRef = useRef(recoverIdle)
+  prepareNextRef.current = prepareNext
+  fireCommittedRef.current = fireCommitted
+  recoverIdleRef.current = recoverIdle
+
+  // Conductor loop (Planner → Executor). While a track plays: if nothing is
+  // prepared, PREPARE the next one now (calm, well ahead); once prepared, wait for
+  // the outgoing track's OUTRO boundary and FIRE the already-ready cut.
   useEffect(() => {
     if (!running) return
     const timer = window.setInterval(() => {
-      if (mixingRef.current) return
+      if (mixingRef.current || preparingRef.current) return
       if (runtimeNow() * 1000 < cooldownUntilRef.current) return
       const state = runtimeRef.current
       if (state === null) return
       const activeId = activePlayingDeck(state)
-      if (activeId === null) return
+      if (activeId === null) {
+        // No audible deck (a track ended before a cut). Save the set if a next
+        // track is already prepared and waiting.
+        if (committedNextRef.current !== null) void recoverIdleRef.current()
+        return
+      }
       const inactiveId: DeckId = activeId === 'A' ? 'B' : 'A'
-      const inactive = state.decks[inactiveId]
-      if (inactive.transport.phase === 'playing' || inactive.load.phase === 'loading') return
       const active = state.decks[activeId]
       if (active.binding === null || active.binding.analysis?.grid.available !== true) return
+      const cn = committedNextRef.current
+      if (cn === null) {
+        // Nothing prepared yet: plan + cue the next track now, if the idle deck is free.
+        const inactive = state.decks[inactiveId]
+        if (inactive.transport.phase === 'playing' || inactive.load.phase === 'loading') return
+        void prepareNextRef.current(activeId)
+        return
+      }
+      // Ready & waiting: fire once the outgoing track reaches its mix-out boundary.
+      if (cn.targetDeckId !== inactiveId) return
+      const currentTrack = trackById.get(active.binding.trackId)
+      if (currentTrack === undefined) return
       const { position, duration } = deckPosition(state, activeId)
       if (duration <= 0) return
-      if (duration - position > MIX_LEAD_SECONDS) return
-      void performAutoMixRef.current()
+      if (position < mixOutSeconds(currentTrack, duration)) return
+      void fireCommittedRef.current(activeId)
     }, 400)
     return () => window.clearInterval(timer)
-  }, [running])
+  }, [running, trackById])
 
   const onStart = () => {
     setLastRejection(null)
@@ -301,6 +516,13 @@ export function AutoDj(props: AutoDjProps) {
         </div>
         <div className="autodj__status">{status}</div>
       </div>
+
+      {committedNext && (
+        <div className="autodj__policy">
+          <span className="agent-muted">NEXT · cued &amp; synced</span>
+          <span>{committedNext.title}</span>
+        </div>
+      )}
 
       <div className="autodj__policy">
         <span className="agent-muted">POLICY</span>

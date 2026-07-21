@@ -138,7 +138,7 @@ VDAP はメッセージ指向であり、順序保証のある全二重チャネ
 | `velocity` | `{min, max, reverse}` | baseVelocity/configuredVelocity の可動域。ハッカソン core/beat は `reverse:false` |
 | `quantize` | `{units:["beat","bar"], toleranceSeconds?}` | 音楽的スケジューリング対応。`toleranceSeconds` は宣言時だけ実行時刻保証(§10.5) |
 | `crossfaderRamp` | `{curves:["equalPower"], durationUnits:["seconds","beats","bars"]}` | `mixer.rampCrossfader` 対応。beat プロファイルでは MUST |
-| `beatTransition` | `{atomic:true,startUnits:["bar"],durationUnits:["bars"],toleranceSeconds,minimumLeadSeconds}` | `transition.start`による単一境界・Web Audio原子的事前予約対応 |
+| `beatTransition` | `{atomic:true,startUnits:["bar"],durationUnits:["bars","beats","seconds"],toleranceSeconds,minimumLeadSeconds}` | `transition.start`による単一境界・Web Audio原子的事前予約対応 |
 | `phaseSync` | `{}` | `deck.sync` の `tempoPhase` / `tempoBar` モード対応 |
 | `grid` | `{source:"analysis"}` | `deck.getGrid` によるビートグリッド全量取得対応 |
 | `override` | `{targets:["velocity","gate","crossfader"]}` | 一時オーバーライド(§15)対応 |
@@ -656,6 +656,7 @@ result は「グリッド全量」をそのまま返すため、上記の必須�
 
 - 両bindingIdは受理時から終端まで固定する。どちらかが変化した場合は`bindingChanged`で取消し、新bindingのgridや音声へ予約を移してはならない。
 - Runtimeはactive bindingの検証済みdownbeat gridから次境界を**1回だけ**求め、target AudioBufferSourceと両crossfade AudioParam curveを同じAudioContext時刻へ同期的に予約する。個別の`deck.play`と`mixer.rampCrossfader`へ展開してはならない。
+- `crossfader.duration`は`mixer.rampCrossfader`と同じく`{bars}`/`{beats}`/`{seconds}`の**正確に1つ**を持つ（`bars`/`beats`は正整数、`seconds`は有限の正数）。小節頭開始のクロスフェードを次のダウンビートより前に完了させる（例: 3拍で−1/4小節に着地）DJ的フレージングを、単一原子予約のまま表現するための単位である。`durationSeconds`は`beats`/`bars`をactive tempoで秒に解決した最終値を報告する。
 - 次境界までのleadが能力の`minimumLeadSeconds`未満なら、入力を次小節や即時へ変更せず`E_SCHEDULE_TOO_SOON`で拒否する。
 - 開始・完了はAudioContext時間軸上のイベントで確定する。performance clockのtimerだけで`executing`/`completed`へ進めてはならず、AudioContext suspend中は終端しない。
 - userのcrossfader/対象deck操作、panic、client cancelは1つの音声予約を取り消す。実行中は現在のaudio-time位置でtargetをpauseし、crossfaderを保持する。`to`へジャンプしてはならない。

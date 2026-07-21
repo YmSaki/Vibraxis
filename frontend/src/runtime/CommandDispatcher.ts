@@ -388,7 +388,7 @@ export class CommandDispatcher {
                       beatTransition: {
                         atomic: true as const,
                         startUnits: ['bar'] as ['bar'],
-                        durationUnits: ['bars'] as ['bars'],
+                        durationUnits: ['bars', 'beats', 'seconds'] as Array<'bars' | 'beats' | 'seconds'>,
                         toleranceSeconds: 0.01,
                         minimumLeadSeconds: this.audio.minimumTransitionLeadSeconds as number,
                       },
@@ -1646,8 +1646,9 @@ export class CommandDispatcher {
 
   private resolveMusicalDuration(
     deckId: DeckId,
-    duration: { bars: number } | { beats: number },
+    duration: { bars: number } | { beats: number } | { seconds: number },
   ): { value: number } | { error: VdapError } {
+    if ('seconds' in duration) return { value: duration.seconds }
     const deck = this.store.getSnapshot().decks[deckId]
     if (!deck.binding || !deck.binding.analysis) return { error: quantizeUnavailable('noGrid') }
     const effectiveBpm = deck.tempo.effectiveBpm
@@ -2000,10 +2001,19 @@ function parseTransitionStart(value: unknown): Validation<TransitionStartParams>
   if (!isRecord(value.crossfader)
     || !finiteInRange(value.crossfader.to, -1, 1)
     || value.crossfader.curve !== 'equalPower'
-    || !isRecord(value.crossfader.duration)
-    || !Number.isInteger(value.crossfader.duration.bars)
-    || Number(value.crossfader.duration.bars) < 1) {
-    return { error: error('E_INVALID_PARAMS', 'transition.start requires an equalPower crossfader with positive integer bars.') }
+    || !isRecord(value.crossfader.duration)) {
+    return { error: error('E_INVALID_PARAMS', 'transition.start requires an equalPower crossfader with a duration.') }
+  }
+  const rawDuration = value.crossfader.duration
+  let crossfadeDuration: { bars: number } | { beats: number } | { seconds: number }
+  if (Number.isInteger(rawDuration.bars) && Number(rawDuration.bars) >= 1) {
+    crossfadeDuration = { bars: rawDuration.bars as number }
+  } else if (Number.isInteger(rawDuration.beats) && Number(rawDuration.beats) >= 1) {
+    crossfadeDuration = { beats: rawDuration.beats as number }
+  } else if (typeof rawDuration.seconds === 'number' && Number.isFinite(rawDuration.seconds) && rawDuration.seconds > 0) {
+    crossfadeDuration = { seconds: rawDuration.seconds }
+  } else {
+    return { error: error('E_INVALID_PARAMS', 'transition.start crossfader duration requires positive bars, beats, or seconds.') }
   }
   return {
     value: {
@@ -2015,7 +2025,7 @@ function parseTransitionStart(value: unknown): Validation<TransitionStartParams>
       ...(value.minConfidence === undefined ? {} : { minConfidence: value.minConfidence as number }),
       crossfader: {
         to: value.crossfader.to as number,
-        duration: { bars: value.crossfader.duration.bars as number },
+        duration: crossfadeDuration,
         curve: 'equalPower',
       },
     },

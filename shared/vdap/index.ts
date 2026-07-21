@@ -215,7 +215,7 @@ export type TransitionStartParams = {
   minConfidence?: number
   crossfader: {
     to: number
-    duration: { bars: number }
+    duration: { bars: number } | { beats: number } | { seconds: number }
     curve: 'equalPower'
   }
 }

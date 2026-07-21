@@ -38,6 +38,10 @@ This is an OpenAI Build Week entry, and **Codex wrote the core of this codebase*
 
 Development followed a strict collaboration policy (`AGENTS.md`): inputs are never corrected or clamped silently, unverified work is never reported as success, and implementation and review were split between agents — Codex implemented and independently reviewed, with review artifacts kept in `.claude/.tmp/`. After Codex usage limits were temporarily exhausted mid-week, integration work continued with Claude and returned to Codex when limits reset.
 
-The result is measurable: at submission HEAD, `npm run check` passes end-to-end — protocol document checks, 9 contract-schema tests, full type-checking, **388 unit tests across 34 files (0 failures, 0 skips)**, and a production build — and the complete golden path (agent decision → atomic beat-matched transition → next decision) runs live in the browser.
+The result is measurable: at submission HEAD, `npm run check` passes end-to-end — protocol document checks, 9 contract-schema tests, full type-checking, **380 unit tests across 34 files (0 failures, 0 skips)**, and a production build — and the complete golden path (agent decision → atomic beat-matched transition → next decision) runs live in the browser.
 
-<!-- TODO before submission (owner): add the Codex /feedback session ID and link the demo video. -->
+---
+
+**Codex `/feedback` session ID:** `019f66a3-197b-78b3-8eef-05f28494e5f6`
+
+<!-- TODO before submission (owner): link the demo video (YouTube URL). -->

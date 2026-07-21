@@ -198,10 +198,30 @@ test("transition.start schema requires two bindings and one atomic bar request",
   };
   assert.equal(validateTransitionStart(valid), true, ajv.errorsText(validateTransitionStart.errors));
   assert.equal(validateTransitionStart({ ...valid, when: { at: "nextBar" } }), false);
+  // Sub-bar crossfades are part of the contract (beats / seconds), matching
+  // mixer.rampCrossfader — a bar-line start with a crossfade that completes before
+  // the next downbeat is proper DJ phrasing, not a protocol violation.
   assert.equal(
     validateTransitionStart({
       ...valid,
-      params: { ...valid.params, crossfader: { ...valid.params.crossfader, duration: { seconds: 8 } } },
+      params: { ...valid.params, crossfader: { ...valid.params.crossfader, duration: { beats: 3 } } },
+    }),
+    true,
+    ajv.errorsText(validateTransitionStart.errors),
+  );
+  assert.equal(
+    validateTransitionStart({
+      ...valid,
+      params: { ...valid.params, crossfader: { ...valid.params.crossfader, duration: { seconds: 0.1 } } },
+    }),
+    true,
+    ajv.errorsText(validateTransitionStart.errors),
+  );
+  // An unknown duration unit is still rejected.
+  assert.equal(
+    validateTransitionStart({
+      ...valid,
+      params: { ...valid.params, crossfader: { ...valid.params.crossfader, duration: { ms: 8 } } },
     }),
     false,
   );
