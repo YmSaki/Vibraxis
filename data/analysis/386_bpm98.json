@@ -10,8 +10,8 @@
   "analyzer": {
     "provider": "librosa",
     "version": "vibraxis-0.2.3/librosa-0.11.0",
-    "analyzedAt": "2026-07-19T14:00:38.158642+00:00",
-    "configHash": "340d57d6a928b5db152959731a296edd729127058a4bf3353544a4dd3f0c0f8e"
+    "analyzedAt": "2026-07-20T23:24:56.967672+00:00",
+    "configHash": "a57870186ba5528b48a8a3ea538b048a26211ebfb4010550560295601ff0df17"
   },
   "capabilities": {
     "features": {
@@ -23,10 +23,10 @@
     },
     "beatGrid": {
       "status": "partial",
-      "provider": "librosa-heuristic",
+      "provider": "vibraxis-harmonic",
       "version": "vibraxis-0.2.3/librosa-0.11.0",
-      "confidence": 0.55,
-      "error": "heuristic downbeats have not passed the human accuracy gate"
+      "confidence": 0.6,
+      "error": "downbeat phase from harmonic change; residual half-bar cases need a human offset"
     },
     "harmony": {
       "status": "partial",
@@ -968,109 +968,171 @@
     "sections": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 20.2423,
+        "endSeconds": 10.4464,
         "startBeat": 0,
-        "endBeat": 33,
+        "endBeat": 17,
         "startBar": 0,
-        "endBar": 9,
+        "endBar": 5,
         "label": "intro",
         "rawLabel": "heuristic:intro",
-        "confidence": 0.72,
-        "energy": 0.3875
+        "confidence": 0.6,
+        "energy": 0.2089
+      },
+      {
+        "startSeconds": 10.4464,
+        "endSeconds": 20.2423,
+        "startBeat": 17,
+        "endBeat": 33,
+        "startBar": 5,
+        "endBar": 9,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.5,
+        "energy": 0.2696
       },
       {
         "startSeconds": 20.2423,
-        "endSeconds": 49.6301,
+        "endSeconds": 42.2832,
         "startBeat": 33,
-        "endBeat": 81,
+        "endBeat": 69,
         "startBar": 9,
-        "endBar": 21,
-        "label": "build",
-        "rawLabel": "heuristic:build",
-        "confidence": 0.52,
-        "energy": 0.9939
+        "endBar": 18,
+        "label": "verse",
+        "rawLabel": "heuristic:verse",
+        "confidence": 0.4,
+        "energy": 0.5613
       },
       {
-        "startSeconds": 49.6301,
-        "endSeconds": 76.5689,
-        "startBeat": 81,
-        "endBeat": 125,
-        "startBar": 21,
-        "endBar": 32,
+        "startSeconds": 42.2832,
+        "endSeconds": 52.0791,
+        "startBeat": 69,
+        "endBeat": 85,
+        "startBar": 18,
+        "endBar": 22,
         "label": "chorus",
         "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 1.0
+        "confidence": 0.45,
+        "energy": 0.8673
       },
       {
-        "startSeconds": 76.5689,
+        "startSeconds": 52.0791,
+        "endSeconds": 61.875,
+        "startBeat": 85,
+        "endBeat": 101,
+        "startBar": 22,
+        "endBar": 26,
+        "label": "verse",
+        "rawLabel": "heuristic:verse",
+        "confidence": 0.4,
+        "energy": 0.6362
+      },
+      {
+        "startSeconds": 61.875,
+        "endSeconds": 86.3648,
+        "startBeat": 101,
+        "endBeat": 141,
+        "startBar": 26,
+        "endBar": 36,
+        "label": "chorus",
+        "rawLabel": "heuristic:chorus",
+        "confidence": 0.45,
+        "energy": 0.6611
+      },
+      {
+        "startSeconds": 86.3648,
+        "endSeconds": 98.6097,
+        "startBeat": 141,
+        "endBeat": 161,
+        "startBar": 36,
+        "endBar": 41,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.5,
+        "energy": 0.3512
+      },
+      {
+        "startSeconds": 98.6097,
         "endSeconds": 111.48,
-        "startBeat": 125,
+        "startBeat": 161,
         "endBeat": 183,
-        "startBar": 32,
+        "startBar": 41,
         "endBar": 47,
         "label": "outro",
         "rawLabel": "heuristic:outro",
-        "confidence": 0.72,
-        "energy": 0.5882
+        "confidence": 0.6,
+        "energy": 0.2093
       }
     ],
     "phrases": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 17.7934,
+        "endSeconds": 10.4464,
         "startBar": 0,
-        "endBar": 8,
+        "endBar": 5,
         "sectionIndex": 0
       },
       {
-        "startSeconds": 17.7934,
+        "startSeconds": 10.4464,
         "endSeconds": 20.2423,
-        "startBar": 8,
+        "startBar": 5,
         "endBar": 9,
-        "sectionIndex": 0
+        "sectionIndex": 1
       },
       {
         "startSeconds": 20.2423,
         "endSeconds": 39.8342,
         "startBar": 9,
         "endBar": 17,
-        "sectionIndex": 1
+        "sectionIndex": 2
       },
       {
         "startSeconds": 39.8342,
-        "endSeconds": 49.6301,
+        "endSeconds": 42.2832,
         "startBar": 17,
-        "endBar": 21,
-        "sectionIndex": 1
-      },
-      {
-        "startSeconds": 49.6301,
-        "endSeconds": 69.2219,
-        "startBar": 21,
-        "endBar": 29,
+        "endBar": 18,
         "sectionIndex": 2
       },
       {
-        "startSeconds": 69.2219,
-        "endSeconds": 76.5689,
-        "startBar": 29,
-        "endBar": 32,
-        "sectionIndex": 2
-      },
-      {
-        "startSeconds": 76.5689,
-        "endSeconds": 96.1607,
-        "startBar": 32,
-        "endBar": 40,
+        "startSeconds": 42.2832,
+        "endSeconds": 52.0791,
+        "startBar": 18,
+        "endBar": 22,
         "sectionIndex": 3
       },
       {
-        "startSeconds": 96.1607,
+        "startSeconds": 52.0791,
+        "endSeconds": 61.875,
+        "startBar": 22,
+        "endBar": 26,
+        "sectionIndex": 4
+      },
+      {
+        "startSeconds": 61.875,
+        "endSeconds": 81.4668,
+        "startBar": 26,
+        "endBar": 34,
+        "sectionIndex": 5
+      },
+      {
+        "startSeconds": 81.4668,
+        "endSeconds": 86.3648,
+        "startBar": 34,
+        "endBar": 36,
+        "sectionIndex": 5
+      },
+      {
+        "startSeconds": 86.3648,
+        "endSeconds": 98.6097,
+        "startBar": 36,
+        "endBar": 41,
+        "sectionIndex": 6
+      },
+      {
+        "startSeconds": 98.6097,
         "endSeconds": 111.48,
-        "startBar": 40,
+        "startBar": 41,
         "endBar": 47,
-        "sectionIndex": 3
+        "sectionIndex": 7
       }
     ]
   },

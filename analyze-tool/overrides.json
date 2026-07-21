@@ -1,24 +1,93 @@
 {
   "tracks": {
-    "116_BPM190.mp3": { "bpm": 190, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "126_BPM142.mp3": { "bpm": 142, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "127_BPM155.mp3": { "bpm": 155, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "148_BPM190.mp3": { "bpm": 190, "rigidGrid": true, "downbeatOffsetBeats": 1 },
-    "157_BPM175.mp3": { "bpm": 175, "rigidGrid": true },
-    "159_BPM130.mp3": { "bpm": 130, "rigidGrid": true, "downbeatOffsetBeats": -1 },
-    "160_BPM172.mp3": { "bpm": 172, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "165_BPM100.mp3": { "bpm": 100, "rigidGrid": true },
-    "225_BPM70.mp3": { "bpm": 70, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "233_BPM163.mp3": { "bpm": 163, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "236_BPM87.mp3": { "bpm": 87, "rigidGrid": true },
-    "239_BPM88.mp3": { "bpm": 88, "rigidGrid": true },
-    "249_BPM118.mp3": { "bpm": 118, "rigidGrid": true, "downbeatOffsetBeats": -1 },
-    "276_BPM103.mp3": { "bpm": 103, "rigidGrid": true, "downbeatOffsetBeats": 1 },
-    "301_BPM145.mp3": { "bpm": 145, "rigidGrid": true },
-    "315_BPM195.mp3": { "bpm": 195, "rigidGrid": true, "downbeatOffsetBeats": 1 },
-    "386_BPM98.mp3": { "bpm": 98, "rigidGrid": true },
-    "443_BPM120.mp3": { "bpm": 120, "rigidGrid": true, "downbeatOffsetBeats": 2 },
-    "451_BPM190.mp3": { "bpm": 190, "rigidGrid": true },
-    "452_BPM140.mp3": { "bpm": 140, "rigidGrid": true, "downbeatOffsetBeats": 2 }
+    "116_BPM190.mp3": {
+      "bpm": 190,
+      "rigidGrid": true,
+      "downbeatOffsetBeats": 1
+    },
+    "126_BPM142.mp3": {
+      "bpm": 142,
+      "rigidGrid": true
+    },
+    "127_BPM155.mp3": {
+      "bpm": 155,
+      "rigidGrid": true
+    },
+    "148_BPM190.mp3": {
+      "bpm": 190,
+      "rigidGrid": true
+    },
+    "157_BPM175.mp3": {
+      "bpm": 175,
+      "rigidGrid": true
+    },
+    "159_BPM130.mp3": {
+      "bpm": 130,
+      "rigidGrid": true,
+      "downbeatOffsetBeats": 1
+    },
+    "160_BPM172.mp3": {
+      "bpm": 172,
+      "rigidGrid": true,
+      "downbeatOffsetBeats": 2
+    },
+    "165_BPM100.mp3": {
+      "bpm": 100,
+      "rigidGrid": true
+    },
+    "225_BPM70.mp3": {
+      "bpm": 70,
+      "rigidGrid": true
+    },
+    "233_BPM163.mp3": {
+      "bpm": 163,
+      "rigidGrid": true
+    },
+    "236_BPM87.mp3": {
+      "bpm": 87,
+      "rigidGrid": true
+    },
+    "239_BPM88.mp3": {
+      "bpm": 88,
+      "rigidGrid": true
+    },
+    "249_BPM118.mp3": {
+      "bpm": 118,
+      "rigidGrid": true
+    },
+    "276_BPM103.mp3": {
+      "bpm": 103,
+      "rigidGrid": true
+    },
+    "301_BPM145.mp3": {
+      "bpm": 145,
+      "rigidGrid": true
+    },
+    "315_BPM195.mp3": {
+      "bpm": 195,
+      "rigidGrid": true,
+      "downbeatOffsetBeats": 2
+    },
+    "386_BPM98.mp3": {
+      "bpm": 98,
+      "rigidGrid": true
+    },
+    "443_BPM120.mp3": {
+      "bpm": 120,
+      "rigidGrid": true
+    },
+    "451_BPM190.mp3": {
+      "bpm": 190,
+      "rigidGrid": true
+    },
+    "452_BPM140.mp3": {
+      "bpm": 140,
+      "rigidGrid": true,
+      "downbeatOffsetBeats": 2
+    },
+    "Re_n1-38_final.wav": {
+      "bpm": 192,
+      "rigidGrid": true
+    }
   }
 }

@@ -10,8 +10,8 @@
   "analyzer": {
     "provider": "librosa",
     "version": "vibraxis-0.2.3/librosa-0.11.0",
-    "analyzedAt": "2026-07-19T14:00:26.124801+00:00",
-    "configHash": "8f07de228484e6da00b8cddc33cf855874b1c3529bfad8cde0571e76b05d519a"
+    "analyzedAt": "2026-07-20T23:24:39.088625+00:00",
+    "configHash": "3292fee38c6678d1f07031277654d70eba6cd27ee49a848b69a3dd289b5a4ca9"
   },
   "capabilities": {
     "features": {
@@ -23,10 +23,10 @@
     },
     "beatGrid": {
       "status": "partial",
-      "provider": "librosa-heuristic",
+      "provider": "vibraxis-harmonic",
       "version": "vibraxis-0.2.3/librosa-0.11.0",
-      "confidence": 0.55,
-      "error": "heuristic downbeats have not passed the human accuracy gate"
+      "confidence": 0.6,
+      "error": "downbeat phase from harmonic change; residual half-bar cases need a human offset"
     },
     "harmony": {
       "status": "partial",
@@ -923,119 +923,119 @@
     "sections": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 14.6827,
+        "endSeconds": 3.6058,
         "startBeat": 0,
-        "endBeat": 31,
+        "endBeat": 7,
         "startBar": 0,
-        "endBar": 8,
+        "endBar": 2,
         "label": "intro",
         "rawLabel": "heuristic:intro",
-        "confidence": 0.72,
-        "energy": 0.511
+        "confidence": 0.6,
+        "energy": 0.3119
       },
       {
-        "startSeconds": 14.6827,
-        "endSeconds": 31.2981,
-        "startBeat": 31,
-        "endBeat": 67,
-        "startBar": 8,
-        "endBar": 17,
-        "label": "build",
-        "rawLabel": "heuristic:build",
-        "confidence": 0.52,
-        "energy": 0.6429
+        "startSeconds": 3.6058,
+        "endSeconds": 29.4519,
+        "startBeat": 7,
+        "endBeat": 63,
+        "startBar": 2,
+        "endBar": 16,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.4,
+        "energy": 0.5751
       },
       {
-        "startSeconds": 31.2981,
-        "endSeconds": 58.9904,
-        "startBeat": 67,
-        "endBeat": 127,
-        "startBar": 17,
-        "endBar": 32,
-        "label": "build",
-        "rawLabel": "heuristic:build",
-        "confidence": 0.52,
-        "energy": 0.9389
+        "startSeconds": 29.4519,
+        "endSeconds": 46.0673,
+        "startBeat": 63,
+        "endBeat": 99,
+        "startBar": 16,
+        "endBar": 25,
+        "label": "drop",
+        "rawLabel": "heuristic:drop",
+        "confidence": 0.5,
+        "energy": 0.8594
       },
       {
-        "startSeconds": 58.9904,
-        "endSeconds": 90.375,
-        "startBeat": 127,
-        "endBeat": 195,
-        "startBar": 32,
-        "endBar": 49,
-        "label": "verse",
-        "rawLabel": "heuristic:verse",
-        "confidence": 0.42,
-        "energy": 1.0
+        "startSeconds": 46.0673,
+        "endSeconds": 108.8365,
+        "startBeat": 99,
+        "endBeat": 235,
+        "startBar": 25,
+        "endBar": 59,
+        "label": "chorus",
+        "rawLabel": "heuristic:chorus",
+        "confidence": 0.45,
+        "energy": 0.9575
       },
       {
-        "startSeconds": 90.375,
+        "startSeconds": 108.8365,
         "endSeconds": 114.888,
-        "startBeat": 195,
+        "startBeat": 235,
         "endBeat": 249,
-        "startBar": 49,
+        "startBar": 59,
         "endBar": 63,
         "label": "outro",
         "rawLabel": "heuristic:outro",
-        "confidence": 0.72,
-        "energy": 0.7456
+        "confidence": 0.6,
+        "energy": 0.0779
       }
     ],
     "phrases": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 14.6827,
+        "endSeconds": 3.6058,
         "startBar": 0,
-        "endBar": 8,
+        "endBar": 2,
         "sectionIndex": 0
       },
       {
-        "startSeconds": 14.6827,
+        "startSeconds": 3.6058,
+        "endSeconds": 18.375,
+        "startBar": 2,
+        "endBar": 10,
+        "sectionIndex": 1
+      },
+      {
+        "startSeconds": 18.375,
         "endSeconds": 29.4519,
-        "startBar": 8,
+        "startBar": 10,
         "endBar": 16,
         "sectionIndex": 1
       },
       {
         "startSeconds": 29.4519,
-        "endSeconds": 31.2981,
+        "endSeconds": 44.2212,
         "startBar": 16,
-        "endBar": 17,
-        "sectionIndex": 1
+        "endBar": 24,
+        "sectionIndex": 2
       },
       {
-        "startSeconds": 31.2981,
+        "startSeconds": 44.2212,
         "endSeconds": 46.0673,
-        "startBar": 17,
+        "startBar": 24,
         "endBar": 25,
         "sectionIndex": 2
       },
       {
         "startSeconds": 46.0673,
-        "endSeconds": 58.9904,
+        "endSeconds": 60.8365,
         "startBar": 25,
-        "endBar": 32,
-        "sectionIndex": 2
-      },
-      {
-        "startSeconds": 58.9904,
-        "endSeconds": 73.7596,
-        "startBar": 32,
-        "endBar": 40,
+        "endBar": 33,
         "sectionIndex": 3
       },
       {
-        "startSeconds": 73.7596,
-        "endSeconds": 88.5288,
-        "startBar": 40,
-        "endBar": 48,
+        "startSeconds": 60.8365,
+        "endSeconds": 75.6058,
+        "startBar": 33,
+        "endBar": 41,
         "sectionIndex": 3
       },
       {
-        "startSeconds": 88.5288,
+        "startSeconds": 75.6058,
         "endSeconds": 90.375,
-        "startBar": 48,
+        "startBar": 41,
         "endBar": 49,
         "sectionIndex": 3
       },
@@ -1044,12 +1044,19 @@
         "endSeconds": 105.1442,
         "startBar": 49,
         "endBar": 57,
-        "sectionIndex": 4
+        "sectionIndex": 3
       },
       {
         "startSeconds": 105.1442,
-        "endSeconds": 114.888,
+        "endSeconds": 108.8365,
         "startBar": 57,
+        "endBar": 59,
+        "sectionIndex": 3
+      },
+      {
+        "startSeconds": 108.8365,
+        "endSeconds": 114.888,
+        "startBar": 59,
         "endBar": 63,
         "sectionIndex": 4
       }

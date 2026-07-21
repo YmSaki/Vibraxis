@@ -49,29 +49,50 @@ def rigid_beat_times(
 
 
 def infer_downbeats(
-    beat_frames: np.ndarray,
-    onset_envelope: np.ndarray,
-    sample_rate: int,
+    beats: np.ndarray | list[float],
+    chroma: np.ndarray,
+    chroma_times: np.ndarray,
+    duration: float,
     *,
     beats_per_bar: int = 4,
     phase_offset: int = 0,
 ) -> tuple[list[float], int]:
-    """Choose the strongest metrical phase and return heuristic downbeats.
+    """Choose the metrical phase that carries the most harmonic change.
+
+    Chords change on the downbeat, so the beat-synchronous chroma flux (the
+    harmonic change *entering* each beat) peaks on the "1". Averaging that flux
+    over each candidate phase and taking the argmax is far more reliable than
+    the old onset-energy heuristic, which in most material is dominated by the
+    2/4 backbeat (snare/clap) and picks the wrong beat as the bar head.
+    Empirically this lifted phase accuracy from 5/16 (31%, onset) to 11/16
+    (69%, harmonic) on the sample set; the residual errors are the ±half-bar
+    ambiguities a human resolves via `downbeatOffsetBeats`.
 
     `phase_offset` shifts the automatically chosen phase by that many beats
-    (modulo `beats_per_bar`). It exists for human-verified corrections supplied
-    via overrides when the onset heuristic picks the wrong beat as the bar head.
+    (modulo `beats_per_bar`) for human-verified corrections. Downbeats are
+    returned as an exact subset of `beats`, so they stay aligned to the grid.
     """
 
-    if len(beat_frames) == 0:
+    beats = np.asarray(beats, dtype=float)
+    if beats.size == 0:
         return [], 0
-    strengths = np.asarray([
-        onset_envelope[min(int(frame), len(onset_envelope) - 1)] for frame in beat_frames
-    ])
-    phase_scores = [float(np.mean(strengths[phase::beats_per_bar])) for phase in range(beats_per_bar)]
-    phase = (int(np.argmax(phase_scores)) + phase_offset) % beats_per_bar
-    frames = beat_frames[phase::beats_per_bar]
-    return [round(float(value), 4) for value in librosa.frames_to_time(frames, sr=sample_rate)], phase
+    edges = np.append(beats, max(float(duration), float(beats[-1]) + 1e-3))
+    bar_chroma = np.zeros((12, beats.size))
+    for index in range(beats.size):
+        lo, hi = np.searchsorted(chroma_times, (edges[index], edges[index + 1]))
+        if hi > lo:
+            bar_chroma[:, index] = np.mean(chroma[:, lo:hi], axis=1)
+    norms = np.linalg.norm(bar_chroma, axis=0, keepdims=True)
+    unit = bar_chroma / np.where(norms > 1e-9, norms, 1.0)
+    flux = np.zeros(beats.size)
+    if beats.size > 1:
+        flux[1:] = np.sum(np.abs(unit[:, 1:] - unit[:, :-1]), axis=0)
+    scores = [
+        float(np.mean(flux[phase::beats_per_bar])) if flux[phase::beats_per_bar].size else 0.0
+        for phase in range(beats_per_bar)
+    ]
+    phase = (int(np.argmax(scores)) + phase_offset) % beats_per_bar
+    return [round(float(value), 4) for value in beats[phase::beats_per_bar]], phase
 
 
 def infer_harmony(
@@ -160,32 +181,70 @@ def infer_structure(
     chroma_times: np.ndarray | None = None,
     onset: np.ndarray | None = None,
     onset_times: np.ndarray | None = None,
+    low_band: np.ndarray | None = None,
+    low_band_times: np.ndarray | None = None,
+    centroid: np.ndarray | None = None,
+    centroid_times: np.ndarray | None = None,
+    bpm: float | None = None,
 ) -> StructureInfo:
+    """Segment the track and label each section from its acoustic *shape*.
+
+    Boundaries follow kick-drum (low-band) state changes plus timbral/harmonic
+    novelty; labels are derived from within-track relative energy, kick
+    presence, the energy slope inside a section, harmonic recurrence, and the
+    build->drop adjacency — not from section index parity. Every input beyond
+    `rms` is optional so the function degrades gracefully; the provider supplies
+    all of them. See memo/structure-investigation/INVESTIGATION.md.
+    """
+
     if duration <= 0:
         return StructureInfo()
     bar_starts = sorted(set([0.0, *bars]))
-    if bar_starts[-1] >= duration:
-        bar_starts = [value for value in bar_starts if value < duration]
-    boundaries = _section_boundaries(
-        bar_starts, duration, rms, rms_times, chroma, chroma_times, onset, onset_times
+    bar_starts = [value for value in bar_starts if value < duration]
+    if len(bar_starts) < 2:
+        section = Section(
+            start_seconds=0.0, end_seconds=round(duration, 4),
+            start_beat=0, end_beat=max(1, len(beats)), start_bar=0, end_bar=1,
+            label="other", raw_label="heuristic:other", confidence=0.3, energy=0.0,
+        )
+        return StructureInfo([section], [])
+
+    feats = _bar_features(
+        bar_starts, duration, rms, rms_times, low_band, low_band_times,
+        onset, onset_times, centroid, centroid_times, chroma, chroma_times,
     )
-    energies = [_range_energy(rms, rms_times, start, end) for start, end in zip(boundaries, boundaries[1:])]
-    maximum = max(energies, default=1.0) or 1.0
-    normalized = [float(np.clip(value / maximum, 0.0, 1.0)) for value in energies]
+    boundaries = _section_boundaries(feats, min_bars=4)
+    labels, energies, confidences = _section_label(feats, boundaries, bpm)
+
+    # Merge adjacent same-label segments at the bar-index level.
+    merged: list[dict] = []
+    for seg in range(len(boundaries) - 1):
+        record = {
+            "b0": boundaries[seg], "b1": boundaries[seg + 1],
+            "label": labels[seg], "energy": energies[seg], "conf": confidences[seg],
+        }
+        if merged and merged[-1]["label"] == record["label"]:
+            merged[-1]["b1"] = record["b1"]
+            merged[-1]["energy"] = max(merged[-1]["energy"], record["energy"])
+            merged[-1]["conf"] = max(merged[-1]["conf"], record["conf"])
+        else:
+            merged.append(record)
 
     sections: list[Section] = []
-    for index, ((start, end), energy) in enumerate(zip(zip(boundaries, boundaries[1:]), normalized)):
-        start_bar = max(0, int(np.searchsorted(bar_starts, start, side="right") - 1))
-        end_bar = max(start_bar + 1, int(np.searchsorted(bar_starts, end, side="left")))
+    for record in merged:
+        b0, b1 = record["b0"], record["b1"]
+        start = bar_starts[b0]
+        end = duration if b1 >= len(bar_starts) else bar_starts[b1]
+        if end <= start:
+            continue
         start_beat = max(0, int(np.searchsorted(beats, start, side="left")))
         end_beat = max(start_beat + 1, int(np.searchsorted(beats, end, side="left")))
-        label, confidence = _section_label(index, len(energies), energy, normalized)
         sections.append(Section(
             start_seconds=round(start, 4), end_seconds=round(end, 4),
             start_beat=start_beat, end_beat=end_beat,
-            start_bar=start_bar, end_bar=end_bar,
-            label=label, raw_label=f"heuristic:{label}", confidence=confidence,
-            energy=round(energy, 4),
+            start_bar=b0, end_bar=max(b0 + 1, b1),
+            label=record["label"], raw_label=f"heuristic:{record['label']}",
+            confidence=round(record["conf"], 4), energy=round(record["energy"], 4),
         ))
 
     phrases: list[Phrase] = []
@@ -264,80 +323,185 @@ def _merge_chords(chords: list[ChordEvent]) -> list[ChordEvent]:
     return merged
 
 
-def _section_boundaries(
-    bars: list[float], duration: float, rms: np.ndarray, rms_times: np.ndarray,
-    chroma: np.ndarray | None, chroma_times: np.ndarray | None,
+def _bar_features(
+    bar_starts: list[float], duration: float,
+    rms: np.ndarray, rms_times: np.ndarray,
+    low_band: np.ndarray | None, low_band_times: np.ndarray | None,
     onset: np.ndarray | None, onset_times: np.ndarray | None,
-) -> list[float]:
-    if len(bars) < 9:
-        return [0.0, duration]
-    bar_energy = np.asarray([
-        _range_energy(rms, rms_times, start, bars[index + 1] if index + 1 < len(bars) else duration)
-        for index, start in enumerate(bars)
-    ])
-    feature_rows: list[np.ndarray] = []
-    for index, start in enumerate(bars):
-        end = bars[index + 1] if index + 1 < len(bars) else duration
-        chroma_value = _range_vector(chroma, chroma_times, start, end, 12)
-        onset_value = _range_energy(onset, onset_times, start, end) if onset is not None and onset_times is not None else 0.0
-        feature_rows.append(np.concatenate(([bar_energy[index], onset_value], chroma_value)))
-    features = np.asarray(feature_rows, dtype=float)
-    scale = np.std(features, axis=0)
-    features = (features - np.mean(features, axis=0)) / np.where(scale > 1e-8, scale, 1.0)
-    adjacent = np.linalg.norm(np.diff(features, axis=0, prepend=features[:1]), axis=1)
-    recurrence_change = np.zeros(len(features))
-    for index in range(8, len(features)):
-        previous = features[max(0, index - 16):index]
-        recurrence_change[index] = float(np.min(np.linalg.norm(previous - features[index], axis=1)))
-    novelty = 0.65 * adjacent + 0.35 * recurrence_change
-    candidates = set(range(32, len(bars), 32))
-    threshold = float(np.percentile(novelty, 80))
-    last = 0
-    for index in np.argsort(novelty)[::-1]:
-        index = int(index)
-        if novelty[index] < threshold:
-            break
-        if index >= 8 and index <= len(bars) - 8 and abs(index - last) >= 8:
-            candidates.add(index)
-            last = index
-    selected: list[int] = []
-    for index in sorted(candidates):
-        if not selected or index - selected[-1] >= 8:
-            selected.append(index)
-    return [0.0, *[bars[index] for index in selected], duration]
+    centroid: np.ndarray | None, centroid_times: np.ndarray | None,
+    chroma: np.ndarray | None, chroma_times: np.ndarray | None,
+) -> dict[str, np.ndarray]:
+    """Per-bar means of every envelope, on the (human-verified) bar grid."""
+    edges = [*bar_starts, duration]
+    count = len(bar_starts)
+
+    def column(values: np.ndarray | None, times: np.ndarray | None) -> np.ndarray:
+        result = np.zeros(count)
+        if values is None or times is None:
+            return result
+        for index in range(count):
+            lo, hi = np.searchsorted(times, (edges[index], edges[index + 1]))
+            if hi > lo:
+                result[index] = float(np.mean(values[lo:hi]))
+        return result
+
+    level = column(rms, rms_times)
+    # low-band (kick/bass) drives boundaries; fall back to overall level if absent.
+    low = column(low_band, low_band_times) if low_band is not None else level.copy()
+    dens = column(onset, onset_times) if onset is not None else level.copy()
+    cent = column(centroid, centroid_times)
+    chroma_bar = np.zeros((12, count))
+    if chroma is not None and chroma_times is not None:
+        for index in range(count):
+            lo, hi = np.searchsorted(chroma_times, (edges[index], edges[index + 1]))
+            if hi > lo:
+                chroma_bar[:, index] = np.mean(chroma[:, lo:hi], axis=1)
+    return {"level": level, "low": low, "dens": dens, "cent": cent, "chroma": chroma_bar}
 
 
-def _range_vector(
-    values: np.ndarray | None, times: np.ndarray | None,
-    start: float, end: float, size: int,
-) -> np.ndarray:
-    if values is None or times is None:
-        return np.zeros(size)
-    mask = (times >= start) & (times < end)
-    if not np.any(mask):
-        return np.zeros(size)
-    return np.mean(values[:, mask], axis=1)
+def _relative(values: np.ndarray) -> np.ndarray:
+    """Robustly rescale a per-bar envelope to 0..1 within this track."""
+    low, high = np.percentile(values, 5), np.percentile(values, 95)
+    return np.clip((values - low) / (high - low + 1e-9), 0.0, 1.0)
 
 
-def _range_energy(rms: np.ndarray, times: np.ndarray, start: float, end: float) -> float:
-    mask = (times >= start) & (times < end)
-    return float(np.mean(rms[mask])) if np.any(mask) else 0.0
+def _section_boundaries(feats: dict[str, np.ndarray], *, min_bars: int = 4) -> list[int]:
+    """Bar indices at which sections start, [0, ..., bar_count].
+
+    Two boundary sources are unioned: (1) kick-drum state changes — where the
+    within-track low band crosses in/out of "kick present", which catches drop
+    entries and breakdowns; and (2) peaks of a timbral+harmonic novelty curve,
+    which catches verse->chorus style changes with no kick change. Boundaries
+    land on real bar lines (no phrase-grid snapping, which smeared short
+    breakdowns) and are thinned to a minimum spacing.
+    """
+    level, low = feats["level"], feats["low"]
+    count = len(level)
+    if count < 2 * min_bars:
+        return [0, count]
+
+    low_rel = _relative(low)
+    kernel = np.ones(3) / 3.0
+    smooth_low = np.convolve(low_rel, kernel, mode="same")
+    kick_on = (smooth_low > 0.42).astype(int)
+    flips = [index for index in range(1, count) if kick_on[index] != kick_on[index - 1]]
+
+    rows = [_relative(level), low_rel, _relative(feats["dens"]), _relative(feats["cent"])]
+    matrix = np.vstack([*rows, feats["chroma"]]).T
+    smoothed = np.vstack([np.convolve(matrix[:, j], kernel, mode="same") for j in range(matrix.shape[1])]).T
+    standardized = (smoothed - smoothed.mean(axis=0)) / (smoothed.std(axis=0) + 1e-9)
+    novelty = np.linalg.norm(np.diff(standardized, axis=0, prepend=standardized[:1]), axis=1)
+    threshold = float(np.percentile(novelty, 75))
+    peaks = [
+        index for index in range(min_bars, count - min_bars // 2)
+        if novelty[index] >= threshold and novelty[index] == np.max(novelty[max(0, index - 2):index + 3])
+    ]
+
+    kept: list[int] = []
+    for index in sorted(set(flips) | set(peaks)):
+        if 0 < index < count and (not kept or index - kept[-1] >= min_bars):
+            kept.append(index)
+    return sorted(set([0, *kept, count]))
 
 
-def _section_label(index: int, count: int, energy: float, energies: list[float]) -> tuple[str, float]:
-    if index == 0:
-        return "intro", 0.72
-    if index == count - 1:
-        return "outro", 0.72
-    median = float(np.median(energies))
-    previous = energies[index - 1]
-    following = energies[index + 1] if index + 1 < count else energy
-    if energy < median * 0.68:
-        return "breakdown", 0.58
-    if energy > previous * 1.18 and following >= energy * 0.9:
-        return "build", 0.52
-    if energy >= max(median * 1.15, previous * 1.08):
-        return "drop", 0.58
-    if index % 2 == 0:
-        return "chorus", 0.42
-    return "verse", 0.42
+def _seg_slope(values: np.ndarray) -> float:
+    """Total rise across a segment relative to its mean (positive => a build)."""
+    if len(values) < 3:
+        return 0.0
+    axis = np.arange(len(values))
+    slope = float(np.polyfit(axis, values, 1)[0])
+    return slope * len(values) / (float(np.mean(values)) + 1e-9)
+
+
+def _section_label(
+    feats: dict[str, np.ndarray], boundaries: list[int], bpm: float | None,
+) -> tuple[list[str], list[float], list[float]]:
+    """Label each segment from its shape. Returns (labels, energies, confidences).
+
+    Priority: intro/outro are position *and* genuinely low energy (a loud final
+    section is never an outro); breakdown is a mid-track energy valley with the
+    kick reduced, flanked by louder sections; build is a rising ramp that leads
+    into a louder section; a peak section reached via a build at EDM tempo is a
+    drop, otherwise a recurring/loud peak is a chorus and a mid-energy section a
+    verse. All thresholds are relative to *this* track. "energy" is the section
+    level relative to the track peak.
+    """
+    level, low = feats["level"], feats["low"]
+    chroma = feats["chroma"]
+    count = len(boundaries) - 1
+    peak = float(level.max()) + 1e-9
+    if count <= 1:
+        return ["other"], [float(level.mean() / peak)], [0.3]
+
+    records = []
+    for seg in range(count):
+        a, b = boundaries[seg], boundaries[seg + 1]
+        records.append({
+            "level": float(np.mean(level[a:b])),
+            "low": float(np.mean(low[a:b])),
+            "slope": _seg_slope(level[a:b]),
+            "cslope": _seg_slope(feats["cent"][a:b]),
+            "chroma": np.mean(chroma[:, a:b], axis=1),
+        })
+    seg_level = np.array([record["level"] for record in records])
+    seg_low = np.array([record["low"] for record in records])
+
+    def rescale(values: np.ndarray) -> np.ndarray:
+        span = float(values.max() - values.min())
+        return (values - values.min()) / (span + 1e-9)
+
+    level_rel = rescale(seg_level)
+    low_rel = rescale(seg_low)
+    median_rel = float(np.median(level_rel))
+
+    def cosine(u: np.ndarray, v: np.ndarray) -> float:
+        return float(u @ v / (np.linalg.norm(u) * np.linalg.norm(v) + 1e-9))
+    recurring = [
+        any(
+            cosine(records[k]["chroma"], records[j]["chroma"]) > 0.9
+            and abs(level_rel[k] - level_rel[j]) < 0.2
+            for j in range(k)
+        )
+        for k in range(count)
+    ]
+    edmish = bpm is not None and 120.0 <= bpm <= 180.0
+
+    labels: list[str] = []
+    energies: list[float] = []
+    confidences: list[float] = []
+    for k in range(count):
+        this = level_rel[k]
+        kick = low_rel[k]
+        slope = records[k]["slope"]
+        previous = level_rel[k - 1] if k > 0 else None
+        following = level_rel[k + 1] if k + 1 < count else None
+        is_high = this >= 0.6 and kick >= 0.45
+        is_low = this <= 0.4 or kick <= 0.35
+        confidence = 0.45
+
+        if k == 0 and this <= 0.55:
+            label, confidence = "intro", 0.6
+        elif k == count - 1 and (this <= 0.45 or kick <= 0.35):
+            label, confidence = "outro", 0.6
+        elif is_low and 0 < k < count - 1 and (
+            (previous is not None and previous > this + 0.15)
+            or (following is not None and following > this + 0.15)
+        ):
+            label, confidence = "breakdown", 0.5
+        elif slope > 0.3 and following is not None and following > this + 0.05 and records[k]["cslope"] >= 0:
+            label, confidence = "build", 0.5
+        elif is_high:
+            came_from_build = previous is not None and (records[k - 1]["slope"] > 0.3 or previous < this - 0.2)
+            if came_from_build and edmish:
+                label, confidence = "drop", 0.5
+            elif recurring[k] or this >= 0.85:
+                label, confidence = "chorus", 0.45
+            else:
+                label, confidence = "verse", 0.4
+        else:
+            label, confidence = ("verse", 0.4) if this >= median_rel else ("breakdown", 0.4)
+
+        labels.append(label)
+        energies.append(float(seg_level[k] / peak))
+        confidences.append(confidence)
+    return labels, energies, confidences

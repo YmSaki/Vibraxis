@@ -10,8 +10,8 @@
   "analyzer": {
     "provider": "librosa",
     "version": "vibraxis-0.2.3/librosa-0.11.0",
-    "analyzedAt": "2026-07-19T15:41:01.938495+00:00",
-    "configHash": "770e12acf53aa94a2841acdfe3a705ff3d26825617c8c4d73a6e0130be6d5542"
+    "analyzedAt": "2026-07-20T23:24:53.028175+00:00",
+    "configHash": "268160adb9bed6120c6f9444ffa3a28dbf841f7fc9e4fcc3bd906fa57a3cd906"
   },
   "capabilities": {
     "features": {
@@ -23,10 +23,10 @@
     },
     "beatGrid": {
       "status": "partial",
-      "provider": "librosa-heuristic",
+      "provider": "vibraxis-harmonic",
       "version": "vibraxis-0.2.3/librosa-0.11.0",
-      "confidence": 0.55,
-      "error": "heuristic downbeats have not passed the human accuracy gate"
+      "confidence": 0.6,
+      "error": "downbeat phase from harmonic change; residual half-bar cases need a human offset"
     },
     "harmony": {
       "status": "partial",
@@ -1477,87 +1477,87 @@
     "sections": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 17.676,
+        "endSeconds": 20.0061,
         "startBeat": 0,
-        "endBeat": 30,
+        "endBeat": 34,
         "startBar": 0,
-        "endBar": 8,
+        "endBar": 9,
         "label": "intro",
         "rawLabel": "heuristic:intro",
-        "confidence": 0.72,
-        "energy": 0.4125
+        "confidence": 0.6,
+        "energy": 0.3951
       },
       {
-        "startSeconds": 17.676,
-        "endSeconds": 36.3167,
-        "startBeat": 30,
-        "endBeat": 62,
-        "startBar": 8,
-        "endBar": 16,
-        "label": "build",
-        "rawLabel": "heuristic:build",
-        "confidence": 0.52,
-        "energy": 0.6066
+        "startSeconds": 20.0061,
+        "endSeconds": 38.6468,
+        "startBeat": 34,
+        "endBeat": 66,
+        "startBar": 9,
+        "endBar": 17,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.5,
+        "energy": 0.5639
       },
       {
-        "startSeconds": 36.3167,
-        "endSeconds": 73.5983,
-        "startBeat": 62,
-        "endBeat": 126,
-        "startBar": 16,
-        "endBar": 32,
-        "label": "drop",
-        "rawLabel": "heuristic:drop",
-        "confidence": 0.58,
-        "energy": 0.9616
-      },
-      {
-        "startSeconds": 73.5983,
-        "endSeconds": 94.5692,
-        "startBeat": 126,
-        "endBeat": 162,
-        "startBar": 32,
-        "endBar": 41,
-        "label": "verse",
-        "rawLabel": "heuristic:verse",
-        "confidence": 0.42,
-        "energy": 0.6175
-      },
-      {
-        "startSeconds": 94.5692,
-        "endSeconds": 113.21,
-        "startBeat": 162,
-        "endBeat": 194,
-        "startBar": 41,
-        "endBar": 49,
+        "startSeconds": 38.6468,
+        "endSeconds": 78.2585,
+        "startBeat": 66,
+        "endBeat": 134,
+        "startBar": 17,
+        "endBar": 34,
         "label": "chorus",
         "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 0.6399
+        "confidence": 0.45,
+        "energy": 0.9195
       },
       {
-        "startSeconds": 113.21,
-        "endSeconds": 148.1614,
-        "startBeat": 194,
-        "endBeat": 254,
-        "startBar": 49,
-        "endBar": 64,
-        "label": "drop",
-        "rawLabel": "heuristic:drop",
-        "confidence": 0.58,
-        "energy": 1.0
+        "startSeconds": 78.2585,
+        "endSeconds": 89.909,
+        "startBeat": 134,
+        "endBeat": 154,
+        "startBar": 34,
+        "endBar": 39,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.4,
+        "energy": 0.5366
       },
       {
-        "startSeconds": 148.1614,
+        "startSeconds": 89.909,
+        "endSeconds": 110.8799,
+        "startBeat": 154,
+        "endBeat": 190,
+        "startBar": 39,
+        "endBar": 48,
+        "label": "verse",
+        "rawLabel": "heuristic:verse",
+        "confidence": 0.4,
+        "energy": 0.6243
+      },
+      {
+        "startSeconds": 110.8799,
+        "endSeconds": 150.4915,
+        "startBeat": 190,
+        "endBeat": 258,
+        "startBar": 48,
+        "endBar": 65,
+        "label": "chorus",
+        "rawLabel": "heuristic:chorus",
+        "confidence": 0.45,
+        "energy": 0.918
+      },
+      {
+        "startSeconds": 150.4915,
         "endSeconds": 156.24,
-        "startBeat": 254,
+        "startBeat": 258,
         "endBeat": 268,
-        "startBar": 64,
+        "startBar": 65,
         "endBar": 68,
         "label": "outro",
         "rawLabel": "heuristic:outro",
-        "confidence": 0.72,
-        "energy": 0.2808
+        "confidence": 0.6,
+        "energy": 0.0186
       }
     ],
     "phrases": [
@@ -1570,64 +1570,85 @@
       },
       {
         "startSeconds": 17.676,
-        "endSeconds": 36.3167,
+        "endSeconds": 20.0061,
         "startBar": 8,
-        "endBar": 16,
+        "endBar": 9,
+        "sectionIndex": 0
+      },
+      {
+        "startSeconds": 20.0061,
+        "endSeconds": 38.6468,
+        "startBar": 9,
+        "endBar": 17,
         "sectionIndex": 1
       },
       {
-        "startSeconds": 36.3167,
-        "endSeconds": 54.9575,
-        "startBar": 16,
-        "endBar": 24,
+        "startSeconds": 38.6468,
+        "endSeconds": 57.2876,
+        "startBar": 17,
+        "endBar": 25,
         "sectionIndex": 2
       },
       {
-        "startSeconds": 54.9575,
-        "endSeconds": 73.5983,
-        "startBar": 24,
-        "endBar": 32,
+        "startSeconds": 57.2876,
+        "endSeconds": 75.9284,
+        "startBar": 25,
+        "endBar": 33,
         "sectionIndex": 2
       },
       {
-        "startSeconds": 73.5983,
-        "endSeconds": 92.2391,
-        "startBar": 32,
-        "endBar": 40,
+        "startSeconds": 75.9284,
+        "endSeconds": 78.2585,
+        "startBar": 33,
+        "endBar": 34,
+        "sectionIndex": 2
+      },
+      {
+        "startSeconds": 78.2585,
+        "endSeconds": 89.909,
+        "startBar": 34,
+        "endBar": 39,
         "sectionIndex": 3
       },
       {
-        "startSeconds": 92.2391,
-        "endSeconds": 94.5692,
-        "startBar": 40,
-        "endBar": 41,
-        "sectionIndex": 3
-      },
-      {
-        "startSeconds": 94.5692,
-        "endSeconds": 113.21,
-        "startBar": 41,
-        "endBar": 49,
+        "startSeconds": 89.909,
+        "endSeconds": 108.5498,
+        "startBar": 39,
+        "endBar": 47,
         "sectionIndex": 4
       },
       {
-        "startSeconds": 113.21,
-        "endSeconds": 131.8507,
-        "startBar": 49,
-        "endBar": 57,
+        "startSeconds": 108.5498,
+        "endSeconds": 110.8799,
+        "startBar": 47,
+        "endBar": 48,
+        "sectionIndex": 4
+      },
+      {
+        "startSeconds": 110.8799,
+        "endSeconds": 129.5206,
+        "startBar": 48,
+        "endBar": 56,
         "sectionIndex": 5
       },
       {
-        "startSeconds": 131.8507,
+        "startSeconds": 129.5206,
         "endSeconds": 148.1614,
-        "startBar": 57,
+        "startBar": 56,
         "endBar": 64,
         "sectionIndex": 5
       },
       {
         "startSeconds": 148.1614,
-        "endSeconds": 156.24,
+        "endSeconds": 150.4915,
         "startBar": 64,
+        "endBar": 65,
+        "sectionIndex": 5
+      },
+      {
+        "startSeconds": 150.4915,
+        "endSeconds": 156.24,
+        "startBar": 65,
         "endBar": 68,
         "sectionIndex": 6
       }
@@ -1643,7 +1664,6 @@
   },
   "overridesApplied": [
     "bpm",
-    "downbeatOffsetBeats",
     "rigidGrid"
   ]
 }

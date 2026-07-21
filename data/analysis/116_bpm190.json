@@ -10,8 +10,8 @@
   "analyzer": {
     "provider": "librosa",
     "version": "vibraxis-0.2.3/librosa-0.11.0",
-    "analyzedAt": "2026-07-19T15:40:52.820988+00:00",
-    "configHash": "687229b4fd5317bc0213340a107432e259e97c37363d7c8d6609988d6844069a"
+    "analyzedAt": "2026-07-20T23:24:27.430436+00:00",
+    "configHash": "6ef5426515bdc087bde9f123899eb2daba0dc149f1546598d33c6f343708d688"
   },
   "capabilities": {
     "features": {
@@ -23,10 +23,10 @@
     },
     "beatGrid": {
       "status": "partial",
-      "provider": "librosa-heuristic",
+      "provider": "vibraxis-harmonic",
       "version": "vibraxis-0.2.3/librosa-0.11.0",
-      "confidence": 0.55,
-      "error": "heuristic downbeats have not passed the human accuracy gate"
+      "confidence": 0.6,
+      "error": "downbeat phase from harmonic change; residual half-bar cases need a human offset"
     },
     "harmony": {
       "status": "partial",
@@ -2215,141 +2215,141 @@
     "sections": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 10.4556,
+        "endSeconds": 1.6135,
         "startBeat": 0,
-        "endBeat": 33,
+        "endBeat": 5,
         "startBar": 0,
-        "endBar": 9,
+        "endBar": 2,
         "label": "intro",
         "rawLabel": "heuristic:intro",
-        "confidence": 0.72,
-        "energy": 0.7458
+        "confidence": 0.6,
+        "energy": 0.2819
       },
       {
-        "startSeconds": 10.4556,
-        "endSeconds": 29.403,
-        "startBeat": 33,
-        "endBeat": 93,
-        "startBar": 9,
-        "endBar": 24,
-        "label": "build",
-        "rawLabel": "heuristic:build",
-        "confidence": 0.52,
-        "energy": 0.9622
+        "startSeconds": 1.6135,
+        "endSeconds": 9.1924,
+        "startBeat": 5,
+        "endBeat": 29,
+        "startBar": 2,
+        "endBar": 8,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.4,
+        "energy": 0.5287
       },
       {
-        "startSeconds": 29.403,
-        "endSeconds": 39.5082,
-        "startBeat": 93,
-        "endBeat": 125,
-        "startBar": 24,
-        "endBar": 32,
+        "startSeconds": 9.1924,
+        "endSeconds": 72.3503,
+        "startBeat": 29,
+        "endBeat": 229,
+        "startBar": 8,
+        "endBar": 58,
         "label": "chorus",
         "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 0.9692
-      },
-      {
-        "startSeconds": 39.5082,
-        "endSeconds": 72.3503,
-        "startBeat": 125,
-        "endBeat": 229,
-        "startBar": 32,
-        "endBar": 58,
-        "label": "verse",
-        "rawLabel": "heuristic:verse",
-        "confidence": 0.42,
-        "energy": 0.9271
+        "confidence": 0.45,
+        "energy": 0.7685
       },
       {
         "startSeconds": 72.3503,
-        "endSeconds": 86.2451,
+        "endSeconds": 78.6661,
         "startBeat": 229,
-        "endBeat": 273,
+        "endBeat": 249,
         "startBar": 58,
-        "endBar": 69,
+        "endBar": 63,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.4,
+        "energy": 0.5166
+      },
+      {
+        "startSeconds": 78.6661,
+        "endSeconds": 83.7187,
+        "startBeat": 249,
+        "endBeat": 265,
+        "startBar": 63,
+        "endBar": 67,
         "label": "chorus",
         "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 0.7855
+        "confidence": 0.45,
+        "energy": 0.6122
       },
       {
-        "startSeconds": 86.2451,
-        "endSeconds": 106.4556,
-        "startBeat": 273,
-        "endBeat": 337,
-        "startBar": 69,
-        "endBar": 85,
-        "label": "build",
-        "rawLabel": "heuristic:build",
-        "confidence": 0.52,
-        "energy": 0.9367
+        "startSeconds": 83.7187,
+        "endSeconds": 90.0345,
+        "startBeat": 265,
+        "endBeat": 285,
+        "startBar": 67,
+        "endBar": 72,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.4,
+        "energy": 0.4824
       },
       {
-        "startSeconds": 106.4556,
-        "endSeconds": 120.3503,
-        "startBeat": 337,
-        "endBeat": 381,
-        "startBar": 85,
-        "endBar": 96,
+        "startSeconds": 90.0345,
+        "endSeconds": 135.5082,
+        "startBeat": 285,
+        "endBeat": 429,
+        "startBar": 72,
+        "endBar": 108,
         "label": "chorus",
         "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 1.0
+        "confidence": 0.45,
+        "energy": 0.7151
       },
       {
-        "startSeconds": 120.3503,
-        "endSeconds": 134.2451,
-        "startBeat": 381,
-        "endBeat": 425,
-        "startBar": 96,
-        "endBar": 107,
-        "label": "verse",
-        "rawLabel": "heuristic:verse",
-        "confidence": 0.42,
-        "energy": 0.7963
+        "startSeconds": 135.5082,
+        "endSeconds": 140.5609,
+        "startBeat": 429,
+        "endBeat": 445,
+        "startBar": 108,
+        "endBar": 112,
+        "label": "breakdown",
+        "rawLabel": "heuristic:breakdown",
+        "confidence": 0.4,
+        "energy": 0.4809
       },
       {
-        "startSeconds": 134.2451,
+        "startSeconds": 140.5609,
         "endSeconds": 149.424,
-        "startBeat": 425,
+        "startBeat": 445,
         "endBeat": 474,
-        "startBar": 107,
+        "startBar": 112,
         "endBar": 120,
         "label": "outro",
         "rawLabel": "heuristic:outro",
-        "confidence": 0.72,
-        "energy": 0.4626
+        "confidence": 0.6,
+        "energy": 0.1772
       }
     ],
     "phrases": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 9.1924,
+        "endSeconds": 1.6135,
         "startBar": 0,
-        "endBar": 8,
+        "endBar": 2,
         "sectionIndex": 0
+      },
+      {
+        "startSeconds": 1.6135,
+        "endSeconds": 9.1924,
+        "startBar": 2,
+        "endBar": 8,
+        "sectionIndex": 1
       },
       {
         "startSeconds": 9.1924,
-        "endSeconds": 10.4556,
+        "endSeconds": 19.2977,
         "startBar": 8,
-        "endBar": 9,
-        "sectionIndex": 0
+        "endBar": 16,
+        "sectionIndex": 2
       },
       {
-        "startSeconds": 10.4556,
-        "endSeconds": 20.5609,
-        "startBar": 9,
-        "endBar": 17,
-        "sectionIndex": 1
-      },
-      {
-        "startSeconds": 20.5609,
+        "startSeconds": 19.2977,
         "endSeconds": 29.403,
-        "startBar": 17,
+        "startBar": 16,
         "endBar": 24,
-        "sectionIndex": 1
+        "sectionIndex": 2
       },
       {
         "startSeconds": 29.403,
@@ -2363,68 +2363,68 @@
         "endSeconds": 49.6135,
         "startBar": 32,
         "endBar": 40,
-        "sectionIndex": 3
+        "sectionIndex": 2
       },
       {
         "startSeconds": 49.6135,
         "endSeconds": 59.7188,
         "startBar": 40,
         "endBar": 48,
-        "sectionIndex": 3
+        "sectionIndex": 2
       },
       {
         "startSeconds": 59.7188,
         "endSeconds": 69.824,
         "startBar": 48,
         "endBar": 56,
-        "sectionIndex": 3
+        "sectionIndex": 2
       },
       {
         "startSeconds": 69.824,
         "endSeconds": 72.3503,
         "startBar": 56,
         "endBar": 58,
-        "sectionIndex": 3
+        "sectionIndex": 2
       },
       {
         "startSeconds": 72.3503,
-        "endSeconds": 82.4556,
+        "endSeconds": 78.6661,
         "startBar": 58,
-        "endBar": 66,
+        "endBar": 63,
+        "sectionIndex": 3
+      },
+      {
+        "startSeconds": 78.6661,
+        "endSeconds": 83.7187,
+        "startBar": 63,
+        "endBar": 67,
         "sectionIndex": 4
       },
       {
-        "startSeconds": 82.4556,
-        "endSeconds": 86.2451,
-        "startBar": 66,
-        "endBar": 69,
-        "sectionIndex": 4
-      },
-      {
-        "startSeconds": 86.2451,
-        "endSeconds": 96.3503,
-        "startBar": 69,
-        "endBar": 77,
+        "startSeconds": 83.7187,
+        "endSeconds": 90.0345,
+        "startBar": 67,
+        "endBar": 72,
         "sectionIndex": 5
       },
       {
-        "startSeconds": 96.3503,
-        "endSeconds": 106.4556,
-        "startBar": 77,
-        "endBar": 85,
-        "sectionIndex": 5
-      },
-      {
-        "startSeconds": 106.4556,
-        "endSeconds": 116.5609,
-        "startBar": 85,
-        "endBar": 93,
+        "startSeconds": 90.0345,
+        "endSeconds": 100.1398,
+        "startBar": 72,
+        "endBar": 80,
         "sectionIndex": 6
       },
       {
-        "startSeconds": 116.5609,
+        "startSeconds": 100.1398,
+        "endSeconds": 110.2451,
+        "startBar": 80,
+        "endBar": 88,
+        "sectionIndex": 6
+      },
+      {
+        "startSeconds": 110.2451,
         "endSeconds": 120.3503,
-        "startBar": 93,
+        "startBar": 88,
         "endBar": 96,
         "sectionIndex": 6
       },
@@ -2433,26 +2433,26 @@
         "endSeconds": 130.4556,
         "startBar": 96,
         "endBar": 104,
-        "sectionIndex": 7
+        "sectionIndex": 6
       },
       {
         "startSeconds": 130.4556,
-        "endSeconds": 134.2451,
+        "endSeconds": 135.5082,
         "startBar": 104,
-        "endBar": 107,
+        "endBar": 108,
+        "sectionIndex": 6
+      },
+      {
+        "startSeconds": 135.5082,
+        "endSeconds": 140.5609,
+        "startBar": 108,
+        "endBar": 112,
         "sectionIndex": 7
       },
       {
-        "startSeconds": 134.2451,
-        "endSeconds": 144.3503,
-        "startBar": 107,
-        "endBar": 115,
-        "sectionIndex": 8
-      },
-      {
-        "startSeconds": 144.3503,
+        "startSeconds": 140.5609,
         "endSeconds": 149.424,
-        "startBar": 115,
+        "startBar": 112,
         "endBar": 120,
         "sectionIndex": 8
       }

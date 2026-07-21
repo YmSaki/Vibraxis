@@ -57,6 +57,8 @@ class LibrosaAnalyzer:
                 "keyMethod": "middle-window-chroma-stft",
                 "keyWindowSeconds": key_window_seconds,
                 "profile": profile,
+                "downbeatMethod": "harmonic-flux-v2",
+                "structureMethod": "shape-features-v2",
                 "schemaVersion": 2,
             },
             sort_keys=True,
@@ -147,24 +149,39 @@ class LibrosaAnalyzer:
         beat_values = [round(float(value), 4) for value in beats]
         if self.profile == "full":
             rms_times = librosa.frames_to_time(np.arange(len(rms_frames)), sr=sample_rate)
+            # Structure/downbeat envelopes: one fine STFT for kick energy(<150 Hz)
+            # and brightness, plus a beat-resolution CQT chroma for harmonic change.
             try:
+                struct_hop = 512
+                struct_stft = np.abs(librosa.stft(samples, n_fft=2048, hop_length=struct_hop))
+                struct_freqs = librosa.fft_frequencies(sr=sample_rate, n_fft=2048)
+                struct_times = librosa.frames_to_time(
+                    np.arange(struct_stft.shape[1]), sr=sample_rate, hop_length=struct_hop
+                )
+                low_band = struct_stft[struct_freqs < 150.0].sum(axis=0)
+                centroid_env = librosa.feature.spectral_centroid(S=struct_stft, sr=sample_rate)[0]
+                beat_chroma = librosa.feature.chroma_cqt(y=samples, sr=sample_rate, hop_length=struct_hop)
+                beat_chroma_times = librosa.frames_to_time(
+                    np.arange(beat_chroma.shape[1]), sr=sample_rate, hop_length=struct_hop
+                )
+            except Exception:
+                low_band = centroid_env = struct_times = None
+                beat_chroma = beat_chroma_times = None
+            try:
+                if beat_chroma is None:
+                    raise ValueError("beat-resolution chroma unavailable for downbeat inference")
                 downbeats, phase = infer_downbeats(
-                    beat_frames, onset_envelope, sample_rate,
+                    beat_values, beat_chroma, beat_chroma_times, duration,
                     phase_offset=downbeat_offset_beats or 0,
                 )
-                if rigid_grid:
-                    # Frames are only used to pick the strongest phase; take the
-                    # downbeat TIMES from the exact rigid beats so they stay a
-                    # strict subset of beatsSeconds (no ~hop-size quantization).
-                    downbeats = [round(float(value), 4) for value in beats[phase::4]]
                 bars = downbeats.copy()
                 beat_capability = CapabilityInfo(
-                    "partial", "librosa-heuristic", self.version, 0.55,
-                    "heuristic downbeats have not passed the human accuracy gate",
+                    "partial", "vibraxis-harmonic", self.version, 0.6,
+                    "downbeat phase from harmonic change; residual half-bar cases need a human offset",
                 )
             except Exception as error:
                 downbeats, bars = [], []
-                beat_capability = CapabilityInfo("failed", "librosa-heuristic", self.version, error=str(error))
+                beat_capability = CapabilityInfo("failed", "vibraxis-harmonic", self.version, error=str(error))
             try:
                 full_chroma = librosa.feature.chroma_stft(
                     y=samples, sr=sample_rate, n_fft=4096, hop_length=4096
@@ -191,10 +208,12 @@ class LibrosaAnalyzer:
             try:
                 structure = infer_structure(
                     bars, beat_values, duration, rms_frames, rms_times,
-                    full_chroma if "full_chroma" in locals() else None,
-                    chroma_times if "chroma_times" in locals() else None,
-                    onset_envelope,
-                    librosa.frames_to_time(np.arange(len(onset_envelope)), sr=sample_rate),
+                    chroma=beat_chroma, chroma_times=beat_chroma_times,
+                    onset=onset_envelope,
+                    onset_times=librosa.frames_to_time(np.arange(len(onset_envelope)), sr=sample_rate),
+                    low_band=low_band, low_band_times=struct_times,
+                    centroid=centroid_env, centroid_times=struct_times,
+                    bpm=bpm,
                 )
                 if not structure.sections:
                     raise ValueError("no structure sections were produced")

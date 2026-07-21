@@ -10,8 +10,8 @@
   "analyzer": {
     "provider": "librosa",
     "version": "vibraxis-0.2.3/librosa-0.11.0",
-    "analyzedAt": "2026-07-19T14:00:24.190887+00:00",
-    "configHash": "3edb34628175bb73f58b0e4590f70d6b17558b1d89cf7d5622900a877c31aef2"
+    "analyzedAt": "2026-07-20T23:24:35.162991+00:00",
+    "configHash": "bbba9573246e0830bfe53a25c1bc6054e5268bc07f9f03fe1fed99fcff74704a"
   },
   "capabilities": {
     "features": {
@@ -23,10 +23,10 @@
     },
     "beatGrid": {
       "status": "partial",
-      "provider": "librosa-heuristic",
+      "provider": "vibraxis-harmonic",
       "version": "vibraxis-0.2.3/librosa-0.11.0",
-      "confidence": 0.55,
-      "error": "heuristic downbeats have not passed the human accuracy gate"
+      "confidence": 0.6,
+      "error": "downbeat phase from harmonic change; residual half-bar cases need a human offset"
     },
     "harmony": {
       "status": "partial",
@@ -1466,161 +1466,137 @@
     "sections": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 10.1447,
+        "endSeconds": 1.3026,
         "startBeat": 0,
-        "endBeat": 32,
+        "endBeat": 4,
         "startBar": 0,
-        "endBar": 9,
+        "endBar": 2,
         "label": "intro",
         "rawLabel": "heuristic:intro",
-        "confidence": 0.72,
-        "energy": 0.8326
+        "confidence": 0.6,
+        "energy": 0.1736
       },
       {
-        "startSeconds": 10.1447,
-        "endSeconds": 21.5132,
-        "startBeat": 32,
-        "endBeat": 68,
-        "startBar": 9,
-        "endBar": 18,
+        "startSeconds": 1.3026,
+        "endSeconds": 24.0395,
+        "startBeat": 4,
+        "endBeat": 76,
+        "startBar": 2,
+        "endBar": 20,
         "label": "verse",
         "rawLabel": "heuristic:verse",
-        "confidence": 0.42,
-        "energy": 0.8899
+        "confidence": 0.4,
+        "energy": 0.7942
       },
       {
-        "startSeconds": 21.5132,
-        "endSeconds": 39.1974,
-        "startBeat": 68,
-        "endBeat": 124,
-        "startBar": 18,
-        "endBar": 32,
+        "startSeconds": 24.0395,
+        "endSeconds": 85.9342,
+        "startBeat": 76,
+        "endBeat": 272,
+        "startBar": 20,
+        "endBar": 69,
         "label": "chorus",
         "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 0.8674
+        "confidence": 0.45,
+        "energy": 0.9292
       },
       {
-        "startSeconds": 39.1974,
-        "endSeconds": 49.3026,
-        "startBeat": 124,
-        "endBeat": 156,
-        "startBar": 32,
-        "endBar": 40,
-        "label": "verse",
-        "rawLabel": "heuristic:verse",
-        "confidence": 0.42,
-        "energy": 0.9004
-      },
-      {
-        "startSeconds": 49.3026,
-        "endSeconds": 74.5658,
-        "startBeat": 156,
-        "endBeat": 236,
-        "startBar": 40,
-        "endBar": 60,
-        "label": "chorus",
-        "rawLabel": "heuristic:chorus",
-        "confidence": 0.42,
-        "energy": 1.0
-      },
-      {
-        "startSeconds": 74.5658,
+        "startSeconds": 85.9342,
         "endSeconds": 89.736,
-        "startBeat": 236,
+        "startBeat": 272,
         "endBeat": 285,
-        "startBar": 60,
+        "startBar": 69,
         "endBar": 73,
         "label": "outro",
         "rawLabel": "heuristic:outro",
-        "confidence": 0.72,
-        "energy": 0.7403
+        "confidence": 0.6,
+        "energy": 0.0637
       }
     ],
     "phrases": [
       {
         "startSeconds": 0.0,
-        "endSeconds": 8.8816,
+        "endSeconds": 1.3026,
         "startBar": 0,
-        "endBar": 8,
+        "endBar": 2,
         "sectionIndex": 0
       },
       {
-        "startSeconds": 8.8816,
-        "endSeconds": 10.1447,
-        "startBar": 8,
-        "endBar": 9,
-        "sectionIndex": 0
-      },
-      {
-        "startSeconds": 10.1447,
-        "endSeconds": 20.25,
-        "startBar": 9,
-        "endBar": 17,
+        "startSeconds": 1.3026,
+        "endSeconds": 11.4079,
+        "startBar": 2,
+        "endBar": 10,
         "sectionIndex": 1
       },
       {
-        "startSeconds": 20.25,
+        "startSeconds": 11.4079,
         "endSeconds": 21.5132,
-        "startBar": 17,
+        "startBar": 10,
         "endBar": 18,
         "sectionIndex": 1
       },
       {
         "startSeconds": 21.5132,
-        "endSeconds": 31.6184,
+        "endSeconds": 24.0395,
         "startBar": 18,
-        "endBar": 26,
+        "endBar": 20,
+        "sectionIndex": 1
+      },
+      {
+        "startSeconds": 24.0395,
+        "endSeconds": 34.1447,
+        "startBar": 20,
+        "endBar": 28,
         "sectionIndex": 2
       },
       {
-        "startSeconds": 31.6184,
-        "endSeconds": 39.1974,
-        "startBar": 26,
-        "endBar": 32,
+        "startSeconds": 34.1447,
+        "endSeconds": 44.25,
+        "startBar": 28,
+        "endBar": 36,
         "sectionIndex": 2
       },
       {
-        "startSeconds": 39.1974,
-        "endSeconds": 49.3026,
-        "startBar": 32,
-        "endBar": 40,
-        "sectionIndex": 3
+        "startSeconds": 44.25,
+        "endSeconds": 54.3553,
+        "startBar": 36,
+        "endBar": 44,
+        "sectionIndex": 2
       },
       {
-        "startSeconds": 49.3026,
-        "endSeconds": 59.4079,
-        "startBar": 40,
-        "endBar": 48,
-        "sectionIndex": 4
+        "startSeconds": 54.3553,
+        "endSeconds": 64.4605,
+        "startBar": 44,
+        "endBar": 52,
+        "sectionIndex": 2
       },
       {
-        "startSeconds": 59.4079,
-        "endSeconds": 69.5132,
-        "startBar": 48,
-        "endBar": 56,
-        "sectionIndex": 4
-      },
-      {
-        "startSeconds": 69.5132,
+        "startSeconds": 64.4605,
         "endSeconds": 74.5658,
-        "startBar": 56,
+        "startBar": 52,
         "endBar": 60,
-        "sectionIndex": 4
+        "sectionIndex": 2
       },
       {
         "startSeconds": 74.5658,
         "endSeconds": 84.6711,
         "startBar": 60,
         "endBar": 68,
-        "sectionIndex": 5
+        "sectionIndex": 2
       },
       {
         "startSeconds": 84.6711,
-        "endSeconds": 89.736,
+        "endSeconds": 85.9342,
         "startBar": 68,
+        "endBar": 69,
+        "sectionIndex": 2
+      },
+      {
+        "startSeconds": 85.9342,
+        "endSeconds": 89.736,
+        "startBar": 69,
         "endBar": 73,
-        "sectionIndex": 5
+        "sectionIndex": 3
       }
     ]
   },
@@ -1634,7 +1610,6 @@
   },
   "overridesApplied": [
     "bpm",
-    "downbeatOffsetBeats",
     "rigidGrid"
   ]
 }

@@ -38,18 +38,25 @@ class AdvancedAnalysisTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rigid_beat_times(np.ones(0), 22_050, 120.0, 9.0)
 
-    def test_downbeat_phase_offset_shifts_the_bar_head(self) -> None:
-        # Sixteen beats, ten frames apart; onset strength peaks on phase 0 beats.
-        beat_frames = np.arange(16) * 10
-        envelope = np.full(160, 0.1)
-        envelope[beat_frames[0::4]] = 1.0
-        auto, auto_phase = infer_downbeats(beat_frames, envelope, 22_050)
+    def test_downbeat_phase_from_harmonic_change(self) -> None:
+        # 16 beats one second apart; the chord changes every four beats starting
+        # on phase 0 (bars C, G, Am, F), so the beat-synchronous chroma flux
+        # peaks on phase-0 beats and the detector must choose phase 0.
+        beats = np.arange(16, dtype=float)
+        times = np.arange(0.0, 16.0, 0.1)
+        chroma = np.zeros((12, len(times)))
+        chords = {0: (0, 4, 7), 1: (7, 11, 2), 2: (9, 0, 4), 3: (5, 9, 0)}
+        for column, moment in enumerate(times):
+            for pitch_class in chords[int(moment // 4) % 4]:
+                chroma[pitch_class, column] = 1.0
+        auto, auto_phase = infer_downbeats(beats, chroma, times, 16.0)
         self.assertEqual(auto_phase, 0)
-        shifted, shifted_phase = infer_downbeats(beat_frames, envelope, 22_050, phase_offset=1)
+        self.assertEqual(auto[0], 0.0)
+        shifted, shifted_phase = infer_downbeats(beats, chroma, times, 16.0, phase_offset=1)
         self.assertEqual(shifted_phase, 1)
         self.assertEqual(len(shifted), len(auto))
         self.assertGreater(shifted[0], auto[0])
-        negative, negative_phase = infer_downbeats(beat_frames, envelope, 22_050, phase_offset=-1)
+        _, negative_phase = infer_downbeats(beats, chroma, times, 16.0, phase_offset=-1)
         self.assertEqual(negative_phase, 3)
 
     def test_recognizes_and_merges_c_major_bars(self) -> None:
